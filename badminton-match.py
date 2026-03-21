@@ -290,12 +290,6 @@ def _greedy_four_teams(players, tiers, played_together):
             and _allowed_teammates(f_p, p, tiers)
         ]
         if not candidates:
-            candidates = [
-                p
-                for p in m_players
-                if p not in used_m and _allowed_teammates(f_p, p, tiers)
-            ]
-        if not candidates:
             return None
         # 약한(보통 e에 가까운) 남성 우선 → 여성이 강한 남만 쓰면 남는 남성이 전부 e가 되어 e+비e 짝이 불가능해질 수 있음
         candidates.sort(key=lambda p: SKILL[tiers[p]])
@@ -318,12 +312,6 @@ def _greedy_four_teams(players, tiers, played_together):
             and _allowed_teammates(e_p, p, tiers)
         ]
         if not candidates:
-            candidates = [
-                p
-                for p in ne_players
-                if p not in used_ne and _allowed_teammates(e_p, p, tiers)
-            ]
-        if not candidates:
             return None
         candidates.sort(key=lambda p: SKILL[tiers[p]], reverse=True)
         partner = candidates[0]
@@ -340,8 +328,6 @@ def _greedy_four_teams(players, tiers, played_together):
             if frozenset({hi, p}) not in played_together
             and _allowed_teammates(hi, p, tiers)
         ]
-        if not valid:
-            valid = [p for p in remaining if _allowed_teammates(hi, p, tiers)]
         if not valid:
             return None
         valid.sort(key=lambda p: SKILL[tiers[p]])
