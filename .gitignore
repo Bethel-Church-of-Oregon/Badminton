@@ -1,2 +1,14 @@
 __pycache__/
 *.html
+
+# Node
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment
+.env*.local
+
+# Vercel
+.vercel

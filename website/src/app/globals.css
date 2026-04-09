@@ -1,0 +1,37 @@
+:root {
+  --bg: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-header: #f1f5f9;
+  --accent: #0d9488;
+  --accent-hover: #0f766e;
+  --accent-light: #e6fffa;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --gold: #f59e0b;
+  --silver: #94a3b8;
+  --bronze: #b45309;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans KR', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  line-height: 1.6;
+}
+
+input,
+select,
+button {
+  font-family: inherit;
+}
