@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'BCO Badminton — ELO Leaderboard',
-  description: 'Bethel Church of Oregon Badminton Club ELO Rankings',
+  title: '벧엘 배드민턴 클럽 — ELO 리더보드',
+  description: '벧엘 배드민턴 클럽 ELO 랭킹',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

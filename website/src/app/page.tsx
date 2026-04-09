@@ -12,15 +12,102 @@ interface Member {
   rank: number;
 }
 
+interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+}
+
+interface MatchEntry {
+  id: string;
+  played_at: string;
+  won: boolean;
+  elo_before: number;
+  elo_after: number;
+  elo_change: number;
+  teammates: string[];
+  opponents: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Tier system
+// ---------------------------------------------------------------------------
+
+interface Tier {
+  label: string;
+  color: string;
+  bg: string;
+}
+
+function getTier(elo: number): Tier {
+  if (elo >= 1300) return { label: 'Diamond',  color: '#8b5cf6', bg: '#ede9fe' };
+  if (elo >= 1200) return { label: 'Platinum', color: '#0891b2', bg: '#e0f2fe' };
+  if (elo >= 1100) return { label: 'Gold',     color: '#d97706', bg: '#fef3c7' };
+  if (elo >= 1000) return { label: 'Silver',   color: '#64748b', bg: '#f1f5f9' };
+  return                   { label: 'Bronze',  color: '#92400e', bg: '#fef3c7' };
+}
+
+// ---------------------------------------------------------------------------
+// Avatar helpers
+// ---------------------------------------------------------------------------
+
+const AVATAR_COLORS = [
+  '#0d9488', '#6366f1', '#ec4899', '#f59e0b',
+  '#10b981', '#3b82f6', '#ef4444', '#8b5cf6',
+];
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  return name.charAt(0).toUpperCase();
+}
+
+function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: avatarColor(name),
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#fff', fontWeight: 700,
+      fontSize: size * 0.38,
+      flexShrink: 0,
+      userSelect: 'none',
+    }}>
+      {getInitials(name)}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export default function Home() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [newAnnouncementTitle, setNewAnnouncementTitle] = useState('');
+  const [newAnnouncementBody, setNewAnnouncementBody] = useState('');
+
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
+  const [matchHistoryLoading, setMatchHistoryLoading] = useState(false);
 
   // Admin state
   const [adminOpen, setAdminOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [password, setPassword] = useState('');
   const [newMemberName, setNewMemberName] = useState('');
+
+  // Admin member menu
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ id: string; name: string } | null>(null);
+  const [confirmNameInput, setConfirmNameInput] = useState('');
 
   // Match form
   const [t1p1, setT1p1] = useState('');
@@ -31,6 +118,7 @@ export default function Home() {
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
+  const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<string>>(new Set());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -44,11 +132,35 @@ export default function Home() {
     setLoading(false);
   }, []);
 
+  const loadAnnouncements = useCallback(async () => {
+    const res = await fetch('/api/announcements');
+    setAnnouncements(await res.json());
+  }, []);
+
   useEffect(() => {
     loadMembers();
-    const interval = setInterval(loadMembers, 30_000);
+    loadAnnouncements();
+    const interval = setInterval(() => { loadMembers(); loadAnnouncements(); }, 30_000);
     return () => clearInterval(interval);
-  }, [loadMembers]);
+  }, [loadMembers, loadAnnouncements]);
+
+  // Keep selected member in sync after reload
+  useEffect(() => {
+    if (selectedMember) {
+      const updated = members.find((m) => m.id === selectedMember.id);
+      if (updated) setSelectedMember(updated);
+    }
+  }, [members]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch match history when a member is selected
+  useEffect(() => {
+    if (!selectedMember) { setMatchHistory([]); return; }
+    setMatchHistoryLoading(true);
+    fetch(`/api/members/${selectedMember.id}/matches`)
+      .then((r) => r.json())
+      .then((data) => { setMatchHistory(data); setMatchHistoryLoading(false); })
+      .catch(() => setMatchHistoryLoading(false));
+  }, [selectedMember?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
   // Toast
@@ -86,9 +198,9 @@ export default function Home() {
     await loadMembers();
   }
 
-  async function removeMember(id: string, name: string) {
-    if (!confirm(`Remove ${name} from the leaderboard?`)) return;
-
+  async function removeMember(id: string) {
+    const name = confirmRemove?.name ?? '';
+    setConfirmRemove(null);
     const res = await fetch(
       `/api/members/${id}?password=${encodeURIComponent(password)}`,
       { method: 'DELETE' },
@@ -125,25 +237,46 @@ export default function Home() {
     await loadMembers();
   }
 
+  async function addAnnouncement() {
+    const title = newAnnouncementTitle.trim();
+    if (!title) return showToast('Title is required.', true);
+    const res = await fetch('/api/announcements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body: newAnnouncementBody.trim(), password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error ?? 'Error posting announcement.', true);
+    setNewAnnouncementTitle('');
+    setNewAnnouncementBody('');
+    showToast('Announcement posted.');
+    await loadAnnouncements();
+  }
+
+  async function removeAnnouncement(id: string) {
+    const res = await fetch(
+      `/api/announcements/${id}?password=${encodeURIComponent(password)}`,
+      { method: 'DELETE' },
+    );
+    if (!res.ok) return showToast('Error deleting announcement.', true);
+    showToast('Announcement deleted.');
+    await loadAnnouncements();
+  }
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
-
-  function rankBadge(rank: number) {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return rank;
-  }
 
   function winRate(m: Member) {
     if (!m.games_played) return '—';
     return ((m.wins / m.games_played) * 100).toFixed(0) + '%';
   }
 
-  const memberOptions = members.map((m) => (
-    <option key={m.id} value={m.id}>{m.name} ({m.elo})</option>
-  ));
+  const memberOptions = [...members]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((m) => (
+      <option key={m.id} value={m.id}>{m.name} ({m.elo})</option>
+    ));
 
   // ---------------------------------------------------------------------------
   // Render
@@ -151,75 +284,146 @@ export default function Home() {
 
   return (
     <>
-      <div style={{ maxWidth: 860, margin: '0 auto' }}>
-        {/* Header */}
-        <header style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <div style={{
-            display: 'inline-block', background: 'var(--accent)', color: '#fff',
-            fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.15em',
-            padding: '0.35rem 0.9rem', borderRadius: '2rem', marginBottom: '0.6rem',
-            textTransform: 'uppercase',
-          }}>
-            BCO Badminton Club
-          </div>
-          <h1 style={{ fontSize: '1.7rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
-            ELO Leaderboard
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.3rem' }}>
-            Rankings updated after every recorded match
-          </p>
-        </header>
+      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+
+        {/* Two-column: leaderboard + announcements */}
+        <div className="main-grid">
 
         {/* Leaderboard */}
+        <div>
         <div style={{
           background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 10, overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: '2rem',
+          borderRadius: 12, overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: '2rem',
+          display: 'flex', flexDirection: 'column', minHeight: '780px', maxHeight: '85vh',
         }}>
+          <div style={{
+            background: 'var(--accent)', padding: '0.6rem 1rem',
+            borderBottom: '1px solid var(--border)',
+            fontSize: '0.72rem', fontWeight: 700, color: '#fff',
+            letterSpacing: '0.05em',
+            flexShrink: 0,
+          }}>Leaderboard</div>
+          <div style={{ overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--bg-header)' }}>
-                {['#', 'Name', 'ELO', 'W', 'L', 'Win Rate'].map((h, i) => (
-                  <th key={h} style={{
-                    padding: '0.75rem 1.25rem',
-                    textAlign: i === 0 || i >= 3 ? 'center' : i === 2 || i === 5 ? 'right' : 'left',
-                    fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)',
-                    textTransform: 'uppercase', letterSpacing: '0.1em',
-                    borderBottom: '1px solid var(--border)',
-                  }}>{h}</th>
-                ))}
+                <th style={thStyle('center', '52px')}>#</th>
+                <th style={thStyle('left')}>Name</th>
+                <th style={thStyle('right', '90px')}>ELO</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
               ) : members.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                   No members yet. Add some via the admin panel.
                 </td></tr>
-              ) : members.map((m, idx) => (
-                <tr key={m.id} style={{
-                  borderBottom: idx < members.length - 1 ? '1px solid var(--border)' : 'none',
-                }}>
-                  <td style={{
-                    textAlign: 'center', fontFamily: 'JetBrains Mono, monospace',
-                    fontWeight: 700, fontSize: '0.9rem', padding: '0.85rem 1.25rem',
-                    color: m.rank === 1 ? 'var(--gold)' : m.rank === 2 ? 'var(--silver)' : m.rank === 3 ? 'var(--bronze)' : 'var(--text)',
-                  }}>{rankBadge(m.rank)}</td>
-                  <td style={{ padding: '0.85rem 1.25rem', fontWeight: 500 }}>{m.name}</td>
-                  <td style={{
-                    padding: '0.85rem 1.25rem', textAlign: 'right',
-                    fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
-                    fontSize: '1rem', color: 'var(--accent)',
-                  }}>{m.elo}</td>
-                  <td style={{ padding: '0.85rem 1.25rem', textAlign: 'center' }}>{m.wins}</td>
-                  <td style={{ padding: '0.85rem 1.25rem', textAlign: 'center' }}>{m.losses}</td>
-                  <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{winRate(m)}</td>
-                </tr>
-              ))}
+              ) : members.map((m, idx) => {
+                const tier = getTier(m.elo);
+                return (
+                  <tr
+                    key={m.id}
+                    onClick={() => setSelectedMember(m)}
+                    style={{
+                      borderBottom: idx < members.length - 1 ? '1px solid var(--border)' : 'none',
+                      cursor: 'pointer', transition: 'background 0.1s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-header)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <td style={{
+                      textAlign: 'center', fontFamily: 'JetBrains Mono, monospace',
+                      fontWeight: 600, fontSize: '0.85rem', padding: '0.45rem 0.75rem',
+                      color: 'var(--text-muted)', width: '52px',
+                    }}>{m.rank}</td>
+
+                    <td style={{ padding: '0.45rem 0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <Avatar name={m.name} size={28} />
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{m.name}</div>
+                          <div style={{
+                            display: 'inline-block', marginTop: '0.1rem',
+                            fontSize: '0.62rem', fontWeight: 700,
+                            color: tier.color, background: tier.bg,
+                            padding: '0.05rem 0.4rem', borderRadius: '2rem',
+                          }}>{tier.label}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td style={{
+                      padding: '0.45rem 0.75rem', textAlign: 'right',
+                      fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                      fontSize: '0.85rem', color: 'var(--accent)', width: '80px',
+                    }}>{m.elo}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
+          </div>{/* end scroll wrapper */}
+        </div>{/* end leaderboard card */}
+        </div>{/* end left column */}
+
+        {/* Announcements */}
+        <div>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 12, overflow: 'hidden',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+            display: 'flex', flexDirection: 'column', maxHeight: '70vh',
+          }}>
+            <div style={{
+              background: 'var(--accent)', padding: '0.6rem 1rem',
+              borderBottom: '1px solid var(--border)',
+              fontSize: '0.72rem', fontWeight: 700, color: '#fff',
+              letterSpacing: '0.05em',
+              flexShrink: 0,
+            }}>Announcements</div>
+
+            {announcements.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                No announcements yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                {announcements.map((a, idx) => (
+                  <div key={a.id} style={{
+                    padding: '0.9rem 1rem',
+                    borderBottom: idx < announcements.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    <div
+                      onClick={() => setExpandedAnnouncements((prev) => {
+                        const next = new Set(prev);
+                        next.has(a.id) ? next.delete(a.id) : next.add(a.id);
+                        return next;
+                      })}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: a.body ? 'pointer' : 'default' }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{a.title}</div>
+                      {a.body && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', userSelect: 'none' }}>
+                          {expandedAnnouncements.has(a.id) ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </div>
+                    {a.body && expandedAnnouncements.has(a.id) && (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'pre-wrap', marginTop: '0.4rem', marginBottom: '0.35rem' }}>{a.body}</div>
+                    )}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                      {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>{/* end right column */}
+
+        </div>{/* end main-grid */}
 
         {/* Admin toggle */}
         <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
@@ -247,7 +451,6 @@ export default function Home() {
             </div>
 
             <div style={{ padding: '1.5rem' }}>
-              {/* Password gate */}
               {!unlocked ? (
                 <div>
                   <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-muted)', display: 'block', marginBottom: '0.4rem' }}>
@@ -266,6 +469,7 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
+                <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                   {/* Add / Remove Member */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -290,17 +494,54 @@ export default function Home() {
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No members yet.</p>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                          {members.map((m) => (
+                          {[...members].sort((a, b) => a.name.localeCompare(b.name)).map((m) => (
                             <div key={m.id} style={{
-                              display: 'flex', alignItems: 'center',
-                              justifyContent: 'space-between',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                               padding: '0.5rem 0.75rem',
                               background: 'var(--bg-header)', borderRadius: 6, fontSize: '0.9rem',
+                              position: 'relative',
                             }}>
                               <span>{m.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({m.elo})</span></span>
-                              <button onClick={() => removeMember(m.id, m.name)} style={btnDanger}>
-                                Remove
-                              </button>
+                              <div style={{ position: 'relative' }}>
+                                <button
+                                  onClick={() => setOpenMenuId(openMenuId === m.id ? null : m.id)}
+                                  style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    color: 'var(--text-muted)', fontSize: '1.1rem',
+                                    padding: '0 0.25rem', lineHeight: 1, borderRadius: 4,
+                                  }}
+                                >⋮</button>
+                                {openMenuId === m.id && (
+                                  <>
+                                    {/* Backdrop to close on outside click */}
+                                    <div
+                                      style={{ position: 'fixed', inset: 0, zIndex: 10 }}
+                                      onClick={() => setOpenMenuId(null)}
+                                    />
+                                    <div style={{
+                                      position: 'absolute', right: 0, top: '110%',
+                                      background: 'var(--bg-card)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: 8, zIndex: 11,
+                                      boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                      minWidth: 120, overflow: 'hidden',
+                                    }}>
+                                      <button
+                                        onClick={() => { setOpenMenuId(null); setConfirmRemove({ id: m.id, name: m.name }); setConfirmNameInput(''); }}
+                                        style={{
+                                          width: '100%', padding: '0.6rem 1rem',
+                                          background: 'none', border: 'none',
+                                          textAlign: 'left', cursor: 'pointer',
+                                          fontSize: '0.85rem', color: 'var(--danger)',
+                                          fontWeight: 500,
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#fee2e2')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                      >Remove</button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -315,12 +556,10 @@ export default function Home() {
                     <Field label="Team 1">
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <select value={t1p1} onChange={(e) => setT1p1(e.target.value)} style={selectStyle}>
-                          <option value="">Player 1</option>
-                          {memberOptions}
+                          <option value="">Player 1</option>{memberOptions}
                         </select>
                         <select value={t1p2} onChange={(e) => setT1p2(e.target.value)} style={selectStyle}>
-                          <option value="">Player 2</option>
-                          {memberOptions}
+                          <option value="">Player 2</option>{memberOptions}
                         </select>
                       </div>
                     </Field>
@@ -328,12 +567,10 @@ export default function Home() {
                     <Field label="Team 2">
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <select value={t2p1} onChange={(e) => setT2p1(e.target.value)} style={selectStyle}>
-                          <option value="">Player 1</option>
-                          {memberOptions}
+                          <option value="">Player 1</option>{memberOptions}
                         </select>
                         <select value={t2p2} onChange={(e) => setT2p2(e.target.value)} style={selectStyle}>
-                          <option value="">Player 2</option>
-                          {memberOptions}
+                          <option value="">Player 2</option>{memberOptions}
                         </select>
                       </div>
                     </Field>
@@ -343,16 +580,13 @@ export default function Home() {
                         {(['1', '2'] as const).map((v) => (
                           <label key={v} style={{
                             display: 'flex', alignItems: 'center', gap: '0.35rem',
-                            fontSize: '0.9rem', cursor: 'pointer',
-                            padding: '0.45rem 0.9rem',
+                            fontSize: '0.9rem', cursor: 'pointer', padding: '0.45rem 0.9rem',
                             border: `1px solid ${matchWinner === v ? 'var(--accent)' : 'var(--border)'}`,
                             background: matchWinner === v ? 'var(--accent-light)' : 'transparent',
                             borderRadius: 6,
                           }}>
                             <input
-                              type="radio"
-                              name="winner"
-                              value={v}
+                              type="radio" name="winner" value={v}
                               checked={matchWinner === v}
                               onChange={() => setMatchWinner(v)}
                               style={{ accentColor: 'var(--accent)' }}
@@ -366,11 +600,268 @@ export default function Home() {
                     <button onClick={recordMatch} style={btnPrimary}>Record Match</button>
                   </div>
                 </div>
+
+                {/* Announcements */}
+                <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
+                  <SectionTitle>Announcements</SectionTitle>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '0.75rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <Field label="Title">
+                        <input
+                          type="text"
+                          value={newAnnouncementTitle}
+                          onChange={(e) => setNewAnnouncementTitle(e.target.value)}
+                          placeholder="Announcement title"
+                          style={inputStyle}
+                        />
+                      </Field>
+                      <Field label="Body (optional)">
+                        <textarea
+                          value={newAnnouncementBody}
+                          onChange={(e) => setNewAnnouncementBody(e.target.value)}
+                          placeholder="Details..."
+                          rows={3}
+                          style={{ ...inputStyle, resize: 'vertical' }}
+                        />
+                      </Field>
+                      <button onClick={addAnnouncement} style={btnPrimary}>Post Announcement</button>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
+                        Posted Announcements
+                      </label>
+                      {announcements.length === 0 ? (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>None yet.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {announcements.map((a) => (
+                            <div key={a.id} style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              gap: '0.5rem', padding: '0.5rem 0.75rem',
+                              background: 'var(--bg-header)', borderRadius: 6, fontSize: '0.85rem',
+                            }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
+                              <button onClick={() => removeAnnouncement(a.id)} style={btnDanger}>Delete</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                </>
               )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Profile modal */}
+      {selectedMember && (() => {
+        const m = selectedMember;
+        const tier = getTier(m.elo);
+        return (
+          <div
+            onClick={() => setSelectedMember(null)}
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0,0,0,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 200, padding: '1rem',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--bg-card)', borderRadius: 16,
+                width: '100%', maxWidth: 380,
+                boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+                overflow: 'hidden',
+                maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+              }}
+            >
+              {/* Top accent strip */}
+              <div style={{ height: 6, background: tier.color, flexShrink: 0 }} />
+
+              {/* Scrollable content */}
+              <div style={{ overflowY: 'auto', padding: '1rem 1.5rem 1.5rem' }}>
+                {/* Close button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+                  <button
+                    onClick={() => setSelectedMember(null)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text-muted)', fontSize: '1.1rem', lineHeight: 1, padding: 0,
+                    }}
+                  >✕</button>
+                </div>
+
+                {/* Avatar + name row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                  <Avatar name={m.name} size={56} />
+                  <div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{m.name}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Rank #{m.rank}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        background: tier.bg, color: tier.color,
+                        fontWeight: 700, fontSize: '0.72rem',
+                        padding: '0.2rem 0.6rem', borderRadius: '2rem',
+                        border: `1px solid ${tier.color}33`,
+                      }}>{tier.label}</div>
+                      <span style={{
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)',
+                      }}>{m.elo}</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ELO</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '1rem' }}>
+                  {[
+                    { label: 'Wins',     value: m.wins },
+                    { label: 'Losses',   value: m.losses },
+                    { label: 'Win Rate', value: winRate(m) },
+                    { label: 'Games',    value: m.games_played },
+                  ].map(({ label, value }) => (
+                    <div key={label} style={{
+                      background: 'var(--bg-header)', borderRadius: 10,
+                      padding: '0.7rem 0.4rem', textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '1.05rem', fontWeight: 700 }}>{value}</div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Match history */}
+                <div>
+                  <div style={{
+                    fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)',
+                    textTransform: 'uppercase', letterSpacing: '0.1em',
+                    marginBottom: '0.75rem', paddingBottom: '0.5rem',
+                    borderBottom: '1px solid var(--border)',
+                  }}>Match History</div>
+
+                  {matchHistoryLoading ? (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading…</div>
+                  ) : matchHistory.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matches recorded yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {matchHistory.map((match) => {
+                        const eloSign = match.elo_change >= 0 ? '+' : '';
+                        const date = new Date(match.played_at).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric',
+                        });
+                        return (
+                          <div key={match.id} style={{
+                            padding: '0.75rem',
+                            background: 'var(--bg-header)', borderRadius: 8,
+                          }}>
+                            {/* Top row: W/L + date + ELO at time + change */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                              <div style={{
+                                width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 700, fontSize: '0.75rem',
+                                background: match.won ? '#dcfce7' : '#fee2e2',
+                                color: match.won ? '#16a34a' : '#dc2626',
+                              }}>{match.won ? 'W' : 'L'}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flex: 1 }}>{date}</div>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+                                <span style={{
+                                  fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem',
+                                  color: 'var(--text-muted)',
+                                }}>{match.elo_before}</span>
+                                <span style={{
+                                  fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '0.82rem',
+                                  color: match.elo_change >= 0 ? '#16a34a' : '#dc2626',
+                                }}>{eloSign}{match.elo_change}</span>
+                              </div>
+                            </div>
+
+                            {/* Players */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              {match.teammates.length > 0 && (
+                                <>
+                                  <PlayerRow label="with" names={match.teammates} />
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>·</span>
+                                </>
+                              )}
+                              <PlayerRow label="vs" names={match.opponents} muted />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Confirm remove modal */}
+      {confirmRemove && (
+        <div
+          onClick={() => setConfirmRemove(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 300, padding: '1rem',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)', borderRadius: 12, padding: '1.5rem',
+              maxWidth: 320, width: '100%',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.4rem' }}>Remove member?</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Type <strong>{confirmRemove.name}</strong> to confirm removal.
+            </div>
+            <input
+              type="text"
+              value={confirmNameInput}
+              onChange={(e) => setConfirmNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && confirmNameInput === confirmRemove.name)
+                  removeMember(confirmRemove.id);
+              }}
+              placeholder={confirmRemove.name}
+              style={{ ...inputStyle, marginBottom: '1rem' }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setConfirmRemove(null); setConfirmNameInput(''); }}
+                style={{
+                  background: 'none', border: '1px solid var(--border)',
+                  padding: '0.5rem 1rem', borderRadius: 6,
+                  fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text)',
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => removeMember(confirmRemove.id)}
+                disabled={confirmNameInput !== confirmRemove.name}
+                style={{
+                  ...btnDanger,
+                  opacity: confirmNameInput !== confirmRemove.name ? 0.4 : 1,
+                  cursor: confirmNameInput !== confirmRemove.name ? 'not-allowed' : 'pointer',
+                }}
+              >Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
@@ -378,7 +869,7 @@ export default function Home() {
           position: 'fixed', bottom: '1.5rem', right: '1.5rem',
           background: toast.error ? 'var(--danger)' : 'var(--text)',
           color: '#fff', padding: '0.7rem 1.2rem', borderRadius: 8,
-          fontSize: '0.88rem', maxWidth: 280, zIndex: 100,
+          fontSize: '0.88rem', maxWidth: 280, zIndex: 300,
           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
         }}>
           {toast.msg}
@@ -389,8 +880,35 @@ export default function Home() {
 }
 
 // ---------------------------------------------------------------------------
-// Small helpers
+// Helpers
 // ---------------------------------------------------------------------------
+
+function thStyle(align: React.CSSProperties['textAlign'], width?: string): React.CSSProperties {
+  return {
+    padding: '0.4rem 0.75rem', textAlign: align,
+    fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)',
+    textTransform: 'uppercase', letterSpacing: '0.1em',
+    borderBottom: '1px solid var(--border)',
+    width,
+  };
+}
+
+function PlayerRow({ label, names, muted }: { label: string; names: string[]; muted?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: '1.8rem' }}>{label}</span>
+      {names.map((name) => (
+        <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+          <Avatar name={name} size={20} />
+          <span style={{
+            fontSize: '0.82rem', fontWeight: muted ? 400 : 500,
+            color: muted ? 'var(--text-muted)' : 'var(--text)',
+          }}>{name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -415,7 +933,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// Shared style objects
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.55rem 0.75rem',
   border: '1px solid var(--border)', borderRadius: 6,

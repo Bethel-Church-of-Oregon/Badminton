@@ -21,12 +21,16 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: 18px;
+}
+
 body {
   font-family: 'Noto Sans KR', -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  padding: 2rem 1rem;
+  padding: 2rem 2rem;
   line-height: 1.6;
 }
 
@@ -34,4 +38,17 @@ input,
 select,
 button {
   font-family: inherit;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
 }

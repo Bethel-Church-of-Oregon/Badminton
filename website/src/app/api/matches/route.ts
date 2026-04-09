@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { sql, initDB } from '@/lib/db';
 import { applyElo } from '@/lib/elo';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin';
@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'A player cannot be on both teams' }, { status: 400 });
   }
 
+  await initDB();
+
   // Fetch all involved members
   const { rows: allMembers } = await sql`SELECT id, elo FROM members`;
   const byId = Object.fromEntries(allMembers.map((m) => [m.id, m]));
@@ -46,8 +48,13 @@ export async function POST(req: NextRequest) {
     losers.map((m) => m.elo),
   );
 
-  // Apply updates
+  // Apply ELO updates and collect before/after for each player
+  const eloBefore: Record<string, number> = {};
+  const eloAfter: Record<string, number> = {};
+
   for (let i = 0; i < winners.length; i++) {
+    eloBefore[winners[i].id] = winners[i].elo;
+    eloAfter[winners[i].id] = newWinnerRatings[i];
     await sql`
       UPDATE members
       SET elo = ${newWinnerRatings[i]}, wins = wins + 1, games_played = games_played + 1
@@ -55,10 +62,29 @@ export async function POST(req: NextRequest) {
     `;
   }
   for (let i = 0; i < losers.length; i++) {
+    eloBefore[losers[i].id] = losers[i].elo;
+    eloAfter[losers[i].id] = newLoserRatings[i];
     await sql`
       UPDATE members
       SET elo = ${newLoserRatings[i]}, losses = losses + 1, games_played = games_played + 1
       WHERE id = ${losers[i].id}
+    `;
+  }
+
+  // Record the match
+  const matchId = crypto.randomUUID();
+  await sql`INSERT INTO matches (id, winner) VALUES (${matchId}, ${winner})`;
+
+  for (const id of team1) {
+    await sql`
+      INSERT INTO match_players (match_id, player_id, team, elo_before, elo_after)
+      VALUES (${matchId}, ${id}, 1, ${eloBefore[id]}, ${eloAfter[id]})
+    `;
+  }
+  for (const id of team2) {
+    await sql`
+      INSERT INTO match_players (match_id, player_id, team, elo_before, elo_after)
+      VALUES (${matchId}, ${id}, 2, ${eloBefore[id]}, ${eloAfter[id]})
     `;
   }
 
