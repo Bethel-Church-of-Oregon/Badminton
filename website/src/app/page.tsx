@@ -366,33 +366,44 @@ export default function Home() {
       <div style={{ maxWidth: 1600, margin: '0 auto' }}>
 
         {/* Tabbed card: Leaderboard + Announcements */}
-        <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 12, overflow: 'hidden',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: '2rem',
-          display: 'flex', flexDirection: 'column', minHeight: '780px', maxHeight: '85vh',
-        }}>
-          <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
-            {(['leaderboard', 'announcements'] as const).map((tab, i) => (
+        {/* Bookkeeper tabs */}
+        <div style={{ display: 'flex', gap: '4px', paddingLeft: '12px' }}>
+          {(['leaderboard', 'announcements'] as const).map((tab) => {
+            const isActive = activeTab === tab;
+            const color = tab === 'leaderboard' ? '#0d9488' : '#6366f1';
+            const lightBg = tab === 'leaderboard' ? '#e6fffa' : '#ede9fe';
+            return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
-                  flex: 1, padding: '0.6rem 1rem',
-                  background: activeTab === tab ? 'var(--accent)' : 'var(--bg-header)',
-                  color: activeTab === tab ? '#fff' : 'var(--text-muted)',
-                  border: 'none',
-                  borderRight: i === 0 ? '1px solid var(--border)' : 'none',
+                  padding: '0.45rem 1.25rem',
+                  background: isActive ? color : lightBg,
+                  color: isActive ? '#fff' : color,
+                  border: `1px solid ${color}`,
+                  borderBottom: isActive ? `1px solid var(--bg-card)` : `1px solid ${color}`,
+                  borderRadius: '8px 8px 0 0',
                   cursor: 'pointer',
                   fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em',
                   textTransform: 'uppercase',
+                  position: 'relative', zIndex: isActive ? 1 : 0,
                   transition: 'background 0.15s, color 0.15s',
+                  marginBottom: isActive ? '-1px' : '0',
                 }}
               >
                 {tab === 'leaderboard' ? 'Leaderboard' : 'Announcements'}
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+
+        <div style={{
+          background: 'var(--bg-card)',
+          border: `1px solid ${activeTab === 'leaderboard' ? '#0d9488' : '#6366f1'}`,
+          borderRadius: 12, overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: '2rem',
+          display: 'flex', flexDirection: 'column', minHeight: '780px', maxHeight: '85vh',
+        }}>
 
           {activeTab === 'leaderboard' && (
             <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -408,11 +419,11 @@ export default function Home() {
                 <thead>
                   <tr style={{ background: 'var(--bg-header)' }}>
                     <th style={thStyle('center')}>Rank</th>
-                    <th style={thStyle('left')}>Player</th>
-                    <th style={thStyle('right')}>ELO</th>
-                    <th style={thStyle('right')}>Win Rate</th>
-                    <th style={thStyle('right')}>Games</th>
-                    <th style={thStyle('left')}>About</th>
+                    <th style={thStyle('center')}>Player</th>
+                    <th style={thStyle('center')}>ELO</th>
+                    <th style={thStyle('center')}>Win Rate</th>
+                    <th style={thStyle('center')}>Games</th>
+                    <th style={thStyle('center')}>To My Opponents</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -457,19 +468,19 @@ export default function Home() {
                         </td>
 
                         <td style={{
-                          padding: '0.45rem 0.75rem', textAlign: 'right',
+                          padding: '0.45rem 0.75rem', textAlign: 'center',
                           fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
                           fontSize: '0.85rem', color: 'var(--accent)',
                         }}>{m.elo}</td>
 
                         <td style={{
-                          padding: '0.45rem 0.75rem', textAlign: 'right',
+                          padding: '0.45rem 0.75rem', textAlign: 'center',
                           fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem',
                           fontWeight: 600,
                         }}>{winRate(m)}</td>
 
                         <td style={{
-                          padding: '0.45rem 0.75rem', textAlign: 'right',
+                          padding: '0.45rem 0.75rem', textAlign: 'center',
                           fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem',
                           color: 'var(--text-muted)',
                         }}>{m.games_played}</td>
@@ -586,7 +597,7 @@ export default function Home() {
                         style={inputStyle}
                       />
                     </Field>
-                    <Field label="Short intro (optional)">
+                    <Field label="To My Opponents (optional)">
                       <input
                         type="text"
                         value={newMemberBio}
@@ -1031,7 +1042,7 @@ export default function Home() {
                 />
               </Field>
 
-              <Field label="Short intro">
+              <Field label="To My Opponents">
                 <input
                   type="text"
                   value={editBio}
