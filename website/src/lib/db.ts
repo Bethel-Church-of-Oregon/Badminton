@@ -13,9 +13,12 @@ export async function initDB() {
       wins         INTEGER NOT NULL DEFAULT 0,
       losses       INTEGER NOT NULL DEFAULT 0,
       games_played INTEGER NOT NULL DEFAULT 0,
+      bio          TEXT NOT NULL DEFAULT '',
       created_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS bio TEXT NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS portrait TEXT NOT NULL DEFAULT 'missing-portrait.png'`;
   await sql`
     CREATE TABLE IF NOT EXISTS matches (
       id        TEXT PRIMARY KEY,

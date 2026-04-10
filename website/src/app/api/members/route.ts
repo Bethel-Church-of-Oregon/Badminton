@@ -6,7 +6,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin';
 export async function GET() {
   await initDB();
   const { rows } = await sql`
-    SELECT id, name, elo, wins, losses, games_played
+    SELECT id, name, elo, wins, losses, games_played, bio, portrait
     FROM members
     ORDER BY elo DESC
   `;
@@ -26,15 +26,17 @@ export async function POST(req: NextRequest) {
   if (!name) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
   }
+  const bio = (body.bio ?? '').trim();
+  const portrait = (body.portrait ?? 'missing-portrait.png').trim();
 
   await initDB();
 
   try {
     const id = crypto.randomUUID();
     const { rows } = await sql`
-      INSERT INTO members (id, name)
-      VALUES (${id}, ${name})
-      RETURNING id, name, elo, wins, losses, games_played
+      INSERT INTO members (id, name, bio, portrait)
+      VALUES (${id}, ${name}, ${bio}, ${portrait})
+      RETURNING id, name, elo, wins, losses, games_played, bio, portrait
     `;
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err: unknown) {

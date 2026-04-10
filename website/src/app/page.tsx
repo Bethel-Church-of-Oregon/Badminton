@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 interface Member {
   id: string;
@@ -9,6 +9,8 @@ interface Member {
   wins: number;
   losses: number;
   games_played: number;
+  bio: string;
+  portrait: string;
   rank: number;
 }
 
@@ -67,7 +69,24 @@ function getInitials(name: string): string {
   return name.charAt(0).toUpperCase();
 }
 
-function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+function Avatar({ name, portrait, size = 40 }: { name: string; portrait?: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [portrait]);
+  const src = portrait ? `/assets/portraits/${portrait}` : null;
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        width={size}
+        height={size}
+        onError={() => setFailed(true)}
+        style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }}
+      />
+    );
+  }
+
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%',
@@ -81,6 +100,20 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
       {getInitials(name)}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Portraits
+// ---------------------------------------------------------------------------
+
+const ALL_PORTRAITS = [
+  'missing-portrait.png',
+  ...Array.from({ length: 251 }, (_, i) => `${String(i + 1).padStart(4, '0')}_Normal.png`),
+];
+
+function randomPortrait() {
+  // skip index 0 (missing-portrait)
+  return ALL_PORTRAITS[Math.floor(Math.random() * 251) + 1];
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +136,15 @@ export default function Home() {
   const [unlocked, setUnlocked] = useState(false);
   const [password, setPassword] = useState('');
   const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberBio, setNewMemberBio] = useState('');
+  const [newMemberPortrait, setNewMemberPortrait] = useState(randomPortrait);
+  const [portraitPickerTarget, setPortraitPickerTarget] = useState<'new' | 'edit' | string | null>(null);
+
+  // Edit member
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editPortrait, setEditPortrait] = useState('missing-portrait.png');
 
   // Admin member menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -119,6 +161,7 @@ export default function Home() {
   // Toast
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'announcements'>('leaderboard');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -188,12 +231,14 @@ export default function Home() {
     const res = await fetch('/api/members', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, password }),
+      body: JSON.stringify({ name, bio: newMemberBio.trim(), portrait: newMemberPortrait, password }),
     });
     const data = await res.json();
     if (!res.ok) return showToast(data.error ?? 'Error adding member.', true);
 
     setNewMemberName('');
+    setNewMemberBio('');
+    setNewMemberPortrait(randomPortrait());
     showToast(`${name} added (ELO: 1000).`);
     await loadMembers();
   }
@@ -209,6 +254,35 @@ export default function Home() {
     if (!res.ok) return showToast(data.error ?? 'Error removing member.', true);
 
     showToast(`${name} removed.`);
+    await loadMembers();
+  }
+
+  async function patchMember(id: string, fields: Record<string, unknown>) {
+    return fetch(`/api/members/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...fields, password }),
+    });
+  }
+
+  async function saveMemberEdit() {
+    if (!editingMember) return;
+    const name = editName.trim();
+    if (!name) return showToast('Name cannot be empty.', true);
+
+    const res = await patchMember(editingMember.id, { name, bio: editBio.trim(), portrait: editPortrait });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error ?? 'Error saving changes.', true);
+
+    setEditingMember(null);
+    showToast('Member updated.');
+    await loadMembers();
+  }
+
+  async function updateMemberPortrait(id: string, portrait: string) {
+    const res = await patchMember(id, { portrait });
+    if (!res.ok) return showToast('Error updating portrait.', true);
+    showToast('Portrait updated.');
     await loadMembers();
   }
 
@@ -278,6 +352,11 @@ export default function Home() {
       <option key={m.id} value={m.id}>{m.name} ({m.elo})</option>
     ));
 
+  const portraitMap = useMemo(
+    () => Object.fromEntries(members.map((m) => [m.name, m.portrait])),
+    [members],
+  );
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -286,105 +365,130 @@ export default function Home() {
     <>
       <div style={{ maxWidth: 1600, margin: '0 auto' }}>
 
-        {/* Two-column: leaderboard + announcements */}
-        <div className="main-grid">
-
-        {/* Leaderboard */}
-        <div>
+        {/* Tabbed card: Leaderboard + Announcements */}
         <div style={{
           background: 'var(--bg-card)', border: '1px solid var(--border)',
           borderRadius: 12, overflow: 'hidden',
           boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: '2rem',
           display: 'flex', flexDirection: 'column', minHeight: '780px', maxHeight: '85vh',
         }}>
-          <div style={{
-            background: 'var(--accent)', padding: '0.6rem 1rem',
-            borderBottom: '1px solid var(--border)',
-            fontSize: '0.72rem', fontWeight: 700, color: '#fff',
-            letterSpacing: '0.05em',
-            flexShrink: 0,
-          }}>Leaderboard</div>
-          <div style={{ overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-header)' }}>
-                <th style={thStyle('center', '52px')}>#</th>
-                <th style={thStyle('left')}>Name</th>
-                <th style={thStyle('right', '90px')}>ELO</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
-              ) : members.length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                  No members yet. Add some via the admin panel.
-                </td></tr>
-              ) : members.map((m, idx) => {
-                const tier = getTier(m.elo);
-                return (
-                  <tr
-                    key={m.id}
-                    onClick={() => setSelectedMember(m)}
-                    style={{
-                      borderBottom: idx < members.length - 1 ? '1px solid var(--border)' : 'none',
-                      cursor: 'pointer', transition: 'background 0.1s',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-header)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={{
-                      textAlign: 'center', fontFamily: 'JetBrains Mono, monospace',
-                      fontWeight: 600, fontSize: '0.85rem', padding: '0.45rem 0.75rem',
-                      color: 'var(--text-muted)', width: '52px',
-                    }}>{m.rank}</td>
+          <div style={{ display: 'flex', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
+            {(['leaderboard', 'announcements'] as const).map((tab, i) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  flex: 1, padding: '0.6rem 1rem',
+                  background: activeTab === tab ? 'var(--accent)' : 'var(--bg-header)',
+                  color: activeTab === tab ? '#fff' : 'var(--text-muted)',
+                  border: 'none',
+                  borderRight: i === 0 ? '1px solid var(--border)' : 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+              >
+                {tab === 'leaderboard' ? 'Leaderboard' : 'Announcements'}
+              </button>
+            ))}
+          </div>
 
-                    <td style={{ padding: '0.45rem 0.75rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <Avatar name={m.name} size={28} />
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{m.name}</div>
-                          <div style={{
-                            display: 'inline-block', marginTop: '0.1rem',
-                            fontSize: '0.62rem', fontWeight: 700,
-                            color: tier.color, background: tier.bg,
-                            padding: '0.05rem 0.4rem', borderRadius: '2rem',
-                          }}>{tier.label}</div>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td style={{
-                      padding: '0.45rem 0.75rem', textAlign: 'right',
-                      fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
-                      fontSize: '0.85rem', color: 'var(--accent)', width: '80px',
-                    }}>{m.elo}</td>
+          {activeTab === 'leaderboard' && (
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col />{/* About — takes remaining space */}
+                </colgroup>
+                <thead>
+                  <tr style={{ background: 'var(--bg-header)' }}>
+                    <th style={thStyle('center')}>Rank</th>
+                    <th style={thStyle('left')}>Player</th>
+                    <th style={thStyle('right')}>ELO</th>
+                    <th style={thStyle('right')}>Win Rate</th>
+                    <th style={thStyle('right')}>Games</th>
+                    <th style={thStyle('left')}>About</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>{/* end scroll wrapper */}
-        </div>{/* end leaderboard card */}
-        </div>{/* end left column */}
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
+                  ) : members.length === 0 ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                      No members yet. Add some via the admin panel.
+                    </td></tr>
+                  ) : members.map((m, idx) => {
+                    const tier = getTier(m.elo);
+                    return (
+                      <tr
+                        key={m.id}
+                        onClick={() => setSelectedMember(m)}
+                        style={{
+                          borderBottom: idx < members.length - 1 ? '1px solid var(--border)' : 'none',
+                          cursor: 'pointer', transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-header)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <td style={{
+                          textAlign: 'center', fontFamily: 'JetBrains Mono, monospace',
+                          fontWeight: 600, fontSize: '0.85rem', padding: '0.45rem 0.75rem',
+                          color: 'var(--text-muted)',
+                        }}>{m.rank}</td>
 
-        {/* Announcements */}
-        <div>
-          <div style={{
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 12, overflow: 'hidden',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-            display: 'flex', flexDirection: 'column', maxHeight: '70vh',
-          }}>
-            <div style={{
-              background: 'var(--accent)', padding: '0.6rem 1rem',
-              borderBottom: '1px solid var(--border)',
-              fontSize: '0.72rem', fontWeight: 700, color: '#fff',
-              letterSpacing: '0.05em',
-              flexShrink: 0,
-            }}>Announcements</div>
+                        <td style={{ padding: '0.45rem 0.75rem', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <Avatar name={m.name} portrait={m.portrait} size={40} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '15ch' }}>{m.name}</div>
+                              <div style={{
+                                display: 'inline-block', marginTop: '0.1rem',
+                                fontSize: '0.62rem', fontWeight: 700,
+                                color: tier.color, background: tier.bg,
+                                padding: '0.05rem 0.4rem', borderRadius: '2rem',
+                              }}>{tier.label}</div>
+                            </div>
+                          </div>
+                        </td>
 
-            {announcements.length === 0 ? (
+                        <td style={{
+                          padding: '0.45rem 0.75rem', textAlign: 'right',
+                          fontFamily: 'JetBrains Mono, monospace', fontWeight: 700,
+                          fontSize: '0.85rem', color: 'var(--accent)',
+                        }}>{m.elo}</td>
+
+                        <td style={{
+                          padding: '0.45rem 0.75rem', textAlign: 'right',
+                          fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem',
+                          fontWeight: 600,
+                        }}>{winRate(m)}</td>
+
+                        <td style={{
+                          padding: '0.45rem 0.75rem', textAlign: 'right',
+                          fontFamily: 'JetBrains Mono, monospace', fontSize: '0.82rem',
+                          color: 'var(--text-muted)',
+                        }}>{m.games_played}</td>
+
+                        <td style={{ padding: '0.45rem 0.75rem', overflow: 'hidden' }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            {m.bio || '—'}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'announcements' && (
+            announcements.length === 0 ? (
               <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 No announcements yet.
               </div>
@@ -419,11 +523,9 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-        </div>{/* end right column */}
-
-        </div>{/* end main-grid */}
+            )
+          )}
+        </div>
 
         {/* Admin toggle */}
         <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
@@ -484,6 +586,25 @@ export default function Home() {
                         style={inputStyle}
                       />
                     </Field>
+                    <Field label="Short intro (optional)">
+                      <input
+                        type="text"
+                        value={newMemberBio}
+                        onChange={(e) => setNewMemberBio(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addMember()}
+                        placeholder="e.g. Smash specialist"
+                        style={inputStyle}
+                      />
+                    </Field>
+                    <Field label="Portrait">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <Avatar name={newMemberName || '?'} portrait={newMemberPortrait} size={40} />
+                        <button
+                          onClick={() => setPortraitPickerTarget('new')}
+                          style={{ ...inputStyle, cursor: 'pointer', textAlign: 'left', width: 'auto', padding: '0.4rem 0.75rem' }}
+                        >Choose…</button>
+                      </div>
+                    </Field>
                     <button onClick={addMember} style={btnPrimary}>Add Member</button>
 
                     <div style={{ marginTop: '0.5rem' }}>
@@ -526,6 +647,18 @@ export default function Home() {
                                       boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                                       minWidth: 120, overflow: 'hidden',
                                     }}>
+                                      <button
+                                        onClick={() => { setOpenMenuId(null); setEditingMember(m); setEditName(m.name); setEditBio(m.bio); setEditPortrait(m.portrait); }}
+                                        style={{
+                                          width: '100%', padding: '0.6rem 1rem',
+                                          background: 'none', border: 'none',
+                                          textAlign: 'left', cursor: 'pointer',
+                                          fontSize: '0.85rem', color: 'var(--text)',
+                                          fontWeight: 500,
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-header)')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                      >Edit</button>
                                       <button
                                         onClick={() => { setOpenMenuId(null); setConfirmRemove({ id: m.id, name: m.name }); setConfirmNameInput(''); }}
                                         style={{
@@ -674,7 +807,7 @@ export default function Home() {
               onClick={(e) => e.stopPropagation()}
               style={{
                 background: 'var(--bg-card)', borderRadius: 16,
-                width: '100%', maxWidth: 380,
+                width: '100%', maxWidth: 720,
                 boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
                 overflow: 'hidden',
                 maxHeight: '90vh', display: 'flex', flexDirection: 'column',
@@ -698,7 +831,7 @@ export default function Home() {
 
                 {/* Avatar + name row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                  <Avatar name={m.name} size={56} />
+                  <Avatar name={m.name} portrait={m.portrait} size={72} />
                   <div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{m.name}</div>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Rank #{m.rank}</div>
@@ -751,53 +884,49 @@ export default function Home() {
                   ) : matchHistory.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matches recorded yet.</div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {matchHistory.map((match) => {
-                        const eloSign = match.elo_change >= 0 ? '+' : '';
-                        const date = new Date(match.played_at).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric',
-                        });
-                        return (
-                          <div key={match.id} style={{
-                            padding: '0.75rem',
-                            background: 'var(--bg-header)', borderRadius: 8,
-                          }}>
-                            {/* Top row: W/L + date + ELO at time + change */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
-                              <div style={{
-                                width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '260px', overflowY: 'auto' }}>
+                        {matchHistory.map((match) => {
+                          const eloSign = match.elo_change >= 0 ? '+' : '';
+                          const date = new Date(match.played_at).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric',
+                          });
+                          return (
+                            <div key={match.id} style={{
+                              display: 'flex', alignItems: 'center', gap: '0.6rem',
+                              padding: '0.4rem 0.6rem',
+                              background: 'var(--bg-header)', borderRadius: 7,
+                              flexWrap: 'nowrap', minWidth: 0,
+                            }}>
+                                <div style={{
+                                width: 22, height: 22, borderRadius: 5, flexShrink: 0,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontWeight: 700, fontSize: '0.75rem',
+                                fontWeight: 700, fontSize: '0.7rem',
                                 background: match.won ? '#dcfce7' : '#fee2e2',
                                 color: match.won ? '#16a34a' : '#dc2626',
                               }}>{match.won ? 'W' : 'L'}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', flex: 1 }}>{date}</div>
-                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0, width: '52px' }}>{date}</span>
+
+                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                {match.teammates.length > 0 && (
+                                  <div style={{ width: '130px', flexShrink: 0, overflow: 'hidden' }}>
+                                    <PlayerRow label="with" names={match.teammates} portraitMap={portraitMap} />
+                                  </div>
+                                )}
+                                <PlayerRow label="vs" names={match.opponents} muted portraitMap={portraitMap} />
+                              </div>
+
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', flexShrink: 0 }}>
+                                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{match.elo_before}</span>
                                 <span style={{
-                                  fontFamily: 'JetBrains Mono, monospace', fontSize: '0.8rem',
-                                  color: 'var(--text-muted)',
-                                }}>{match.elo_before}</span>
-                                <span style={{
-                                  fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '0.82rem',
+                                  fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: '0.78rem',
                                   color: match.elo_change >= 0 ? '#16a34a' : '#dc2626',
                                 }}>{eloSign}{match.elo_change}</span>
                               </div>
                             </div>
-
-                            {/* Players */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              {match.teammates.length > 0 && (
-                                <>
-                                  <PlayerRow label="with" names={match.teammates} />
-                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>·</span>
-                                </>
-                              )}
-                              <PlayerRow label="vs" names={match.opponents} muted />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
                   )}
                 </div>
               </div>
@@ -863,6 +992,103 @@ export default function Home() {
         </div>
       )}
 
+      {/* Edit member modal */}
+      {editingMember && (
+        <div
+          onClick={() => setEditingMember(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 300, padding: '1rem',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-card)', borderRadius: 14,
+              width: '100%', maxWidth: 400,
+              boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              background: 'var(--bg-header)', padding: '0.85rem 1.25rem',
+              fontWeight: 700, fontSize: '0.95rem',
+              borderBottom: '1px solid var(--border)',
+            }}>
+              Edit — {editingMember.name}
+            </div>
+
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <Field label="Name">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveMemberEdit()}
+                  style={inputStyle}
+                  autoFocus
+                />
+              </Field>
+
+              <Field label="Short intro">
+                <input
+                  type="text"
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveMemberEdit()}
+                  placeholder="e.g. Smash specialist"
+                  style={inputStyle}
+                />
+              </Field>
+
+              <Field label="Portrait">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Avatar name={editName || '?'} portrait={editPortrait} size={44} />
+                  <button
+                    onClick={() => setPortraitPickerTarget('edit')}
+                    style={{ ...inputStyle, cursor: 'pointer', textAlign: 'left', width: 'auto', padding: '0.4rem 0.75rem' }}
+                  >Change…</button>
+                </div>
+              </Field>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
+                <button
+                  onClick={() => setEditingMember(null)}
+                  style={{
+                    background: 'none', border: '1px solid var(--border)',
+                    padding: '0.5rem 1rem', borderRadius: 6,
+                    fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text)',
+                  }}
+                >Cancel</button>
+                <button onClick={saveMemberEdit} style={btnPrimary}>Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portrait picker modal */}
+      {portraitPickerTarget !== null && (
+        <PortraitPicker
+          current={
+            portraitPickerTarget === 'new' ? newMemberPortrait
+            : portraitPickerTarget === 'edit' ? editPortrait
+            : (members.find(m => m.id === portraitPickerTarget)?.portrait ?? 'missing-portrait.png')
+          }
+          onSelect={(p) => {
+            if (portraitPickerTarget === 'new') {
+              setNewMemberPortrait(p);
+            } else if (portraitPickerTarget === 'edit') {
+              setEditPortrait(p);
+            } else {
+              updateMemberPortrait(portraitPickerTarget!, p);
+            }
+          }}
+          onClose={() => setPortraitPickerTarget(null)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div style={{
@@ -893,16 +1119,17 @@ function thStyle(align: React.CSSProperties['textAlign'], width?: string): React
   };
 }
 
-function PlayerRow({ label, names, muted }: { label: string; names: string[]; muted?: boolean }) {
+function PlayerRow({ label, names, muted, portraitMap }: { label: string; names: string[]; muted?: boolean; portraitMap?: Record<string, string> }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: '1.8rem' }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'nowrap', minWidth: 0 }}>
+      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', flexShrink: 0, lineHeight: 1 }}>{label}</span>
       {names.map((name) => (
-        <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-          <Avatar name={name} size={20} />
+        <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: 0, flexShrink: 1 }}>
+          <Avatar name={name} portrait={portraitMap?.[name]} size={20} />
           <span style={{
             fontSize: '0.82rem', fontWeight: muted ? 400 : 500,
             color: muted ? 'var(--text-muted)' : 'var(--text)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{name}</span>
         </div>
       ))}
@@ -955,3 +1182,77 @@ const btnDanger: React.CSSProperties = {
   padding: '0.35rem 0.65rem', borderRadius: 6,
   fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
 };
+
+// ---------------------------------------------------------------------------
+// Portrait picker
+// ---------------------------------------------------------------------------
+
+function PortraitPicker({ current, onSelect, onClose }: {
+  current: string;
+  onSelect: (portrait: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-card)', borderRadius: 14,
+          width: '100%', maxWidth: 520,
+          maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{
+          padding: '0.75rem 1rem',
+          borderBottom: '1px solid var(--border)',
+          fontWeight: 700, fontSize: '0.9rem', flexShrink: 0,
+        }}>Choose Portrait</div>
+
+        <div style={{
+          overflowY: 'auto', flex: 1,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))',
+          gap: '0.4rem', padding: '0.75rem',
+        }}>
+          {ALL_PORTRAITS.map((p) => (
+            <img
+              key={p}
+              src={`/assets/portraits/${p}`}
+              alt={p}
+              title={p}
+              onClick={() => { onSelect(p); onClose(); }}
+              style={{
+                width: 52, height: 52, objectFit: 'cover',
+                borderRadius: 8, cursor: 'pointer',
+                border: `2px solid ${p === current ? 'var(--accent)' : 'transparent'}`,
+                boxSizing: 'border-box',
+              }}
+              onMouseEnter={(e) => { if (p !== current) e.currentTarget.style.borderColor = 'var(--border)'; }}
+              onMouseLeave={(e) => { if (p !== current) e.currentTarget.style.borderColor = 'transparent'; }}
+            />
+          ))}
+        </div>
+
+        <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: '1px solid var(--border)',
+              padding: '0.45rem 1rem', borderRadius: 6,
+              fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text)',
+            }}
+          >Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
