@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '벧엘 배드민턴 클럽 — ELO 리더보드',
-  description: '벧엘 배드민턴 클럽 ELO 랭킹',
+  title: '벧엘 배드민턴 클럽',
+  description: '벧엘 배드민턴 클럽 홈페이지',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
