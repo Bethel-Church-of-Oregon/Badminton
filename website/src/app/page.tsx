@@ -161,7 +161,7 @@ export default function Home() {
   // Toast
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'announcements'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'announcements' | 'hallofame' | 'tournament'>('leaderboard');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -364,14 +364,22 @@ export default function Home() {
   return (
     <>
       <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+        <h1 style={{
+          textAlign: 'center', fontSize: '2rem', fontWeight: 800,
+          color: 'var(--accent)', marginBottom: '1.5rem',
+          letterSpacing: '0.02em',
+        }}>
+          벧엘 배드민턴 그룹에 오신걸 환영합니다!!!
+        </h1>
 
         {/* Tabbed card: Leaderboard + Announcements */}
         {/* Bookkeeper tabs */}
         <div style={{ display: 'flex', gap: '4px', paddingLeft: '12px' }}>
-          {(['leaderboard', 'announcements'] as const).map((tab) => {
+          {(['leaderboard', 'announcements', 'hallofame', 'tournament'] as const).map((tab) => {
             const isActive = activeTab === tab;
-            const color = tab === 'leaderboard' ? '#0d9488' : '#6366f1';
-            const lightBg = tab === 'leaderboard' ? '#e6fffa' : '#ede9fe';
+            const color = tab === 'leaderboard' ? '#0d9488' : tab === 'announcements' ? '#6366f1' : tab === 'hallofame' ? '#d97706' : '#e11d48';
+            const lightBg = tab === 'leaderboard' ? '#e6fffa' : tab === 'announcements' ? '#ede9fe' : tab === 'hallofame' ? '#fef3c7' : '#ffe4e6';
+            const label = tab === 'leaderboard' ? 'Leaderboard' : tab === 'announcements' ? 'Announcements' : tab === 'hallofame' ? 'Hall of Fame' : 'Tournament';
             return (
               <button
                 key={tab}
@@ -391,7 +399,7 @@ export default function Home() {
                   marginBottom: isActive ? '-1px' : '0',
                 }}
               >
-                {tab === 'leaderboard' ? 'Leaderboard' : 'Announcements'}
+                {label}
               </button>
             );
           })}
@@ -399,7 +407,7 @@ export default function Home() {
 
         <div style={{
           background: 'var(--bg-card)',
-          border: `1px solid ${activeTab === 'leaderboard' ? '#0d9488' : '#6366f1'}`,
+          border: `1px solid ${activeTab === 'leaderboard' ? '#0d9488' : activeTab === 'announcements' ? '#6366f1' : activeTab === 'hallofame' ? '#d97706' : '#e11d48'}`,
           borderRadius: 12, overflow: 'hidden',
           boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: '2rem',
           display: 'flex', flexDirection: 'column', minHeight: '780px', maxHeight: '85vh',
@@ -535,6 +543,14 @@ export default function Home() {
                 ))}
               </div>
             )
+          )}
+
+          {(activeTab === 'hallofame' || activeTab === 'tournament') && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '2.5rem' }}>{activeTab === 'hallofame' ? '🏆' : '📅'}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '0.1em', color: activeTab === 'hallofame' ? '#d97706' : '#e11d48' }}>TBA</div>
+              <div style={{ fontSize: '0.85rem' }}>{activeTab === 'hallofame' ? 'Hall of Fame coming soon.' : 'Tournament schedule coming soon.'}</div>
+            </div>
           )}
         </div>
 
@@ -1126,6 +1142,8 @@ function thStyle(align: React.CSSProperties['textAlign'], width?: string): React
     fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)',
     textTransform: 'uppercase', letterSpacing: '0.1em',
     borderBottom: '1px solid var(--border)',
+    background: 'var(--bg-header)',
+    position: 'sticky', top: 0, zIndex: 1,
     width,
   };
 }
