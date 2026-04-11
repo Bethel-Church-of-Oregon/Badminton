@@ -1,15 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+
 :root {
-  --bg: #f8fafc;
+  --bg: #f5f5f7;
   --bg-card: #ffffff;
-  --bg-header: #f1f5f9;
-  --accent: #0d9488;
-  --accent-hover: #0f766e;
-  --accent-light: #e6fffa;
-  --text: #1e293b;
-  --text-muted: #64748b;
-  --border: #e2e8f0;
-  --danger: #dc2626;
-  --danger-hover: #b91c1c;
+  --bg-header: #fafafa;
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --accent-light: #e8f0fb;
+  --text: #1d1d1f;
+  --text-secondary: #424245;
+  --text-muted: #6e6e73;
+  --border: #d2d2d7;
+  --danger: #ff3b30;
+  --danger-hover: #e0342a;
   --gold: #f59e0b;
   --silver: #94a3b8;
   --bronze: #b45309;
@@ -22,16 +25,19 @@
 }
 
 html {
-  font-size: 18px;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  font-family: 'Noto Sans KR', -apple-system, sans-serif;
+  font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Noto Sans KR', BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  padding: 2rem 2rem;
+  padding: 0;
   line-height: 1.6;
+  letter-spacing: -0.01em;
 }
 
 input,
@@ -51,4 +57,25 @@ button {
   .main-grid {
     grid-template-columns: 1fr;
   }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-25%); }
+}
+
+.marquee-outer {
+  overflow: hidden;
+  width: 100%;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 24s linear infinite;
+}
+
+.marquee-track span {
+  white-space: nowrap;
+  padding-right: 5rem;
 }

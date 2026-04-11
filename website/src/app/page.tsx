@@ -349,11 +349,19 @@ export default function Home() {
     return ((m.wins / m.games_played) * 100).toFixed(0) + '%';
   }
 
-  const memberOptions = [...members]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((m) => (
-      <option key={m.id} value={m.id}>{m.name} ({m.elo})</option>
+  const sortedMembers = [...members].sort((a, b) => a.name.localeCompare(b.name));
+
+  const memberOptions = sortedMembers.map((m) => (
+    <option key={m.id} value={m.id}>{m.name} ({m.elo})</option>
+  ));
+
+  function matchOptions(exclude: string[]) {
+    return sortedMembers.map((m) => (
+      <option key={m.id} value={m.id} disabled={exclude.includes(m.id)}>
+        {m.name} ({m.elo})
+      </option>
     ));
+  }
 
   const portraitMap = useMemo(
     () => Object.fromEntries(members.map((m) => [m.name, m.portrait])),
@@ -366,40 +374,62 @@ export default function Home() {
 
   return (
     <>
-      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-        <h1 style={{
-          textAlign: 'center', fontSize: '2rem', fontWeight: 800,
-          color: 'var(--accent)', marginBottom: '1.5rem',
-          letterSpacing: '0.02em',
-        }}>
-          벧엘 배드민턴 그룹에 오신걸 환영합니다!!!
-        </h1>
+      {/* Hero header */}
+      <div style={{
+        background: 'rgba(255,255,255,0.72)',
+        backdropFilter: 'saturate(180%) blur(20px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+        borderBottom: '1px solid var(--border)',
+        padding: '1.5rem 0',
+      }}>
+        <div className="marquee-outer">
+          <div className="marquee-track" style={{
+            fontSize: '2.5rem', fontWeight: 700,
+            color: 'var(--text)',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.1,
+          }}>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
+          </div>
+        </div>
+      </div>
 
-        <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '2.5rem 2rem' }}>
+
+        {/* Photo carousel */}
+        <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
           <button
             onClick={() => setShowPics((v) => !v)}
             style={{
-              background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)',
-              padding: '0.3rem 1rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem',
+              background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-muted)',
+              padding: '0.35rem 1.1rem', borderRadius: 980, cursor: 'pointer', fontSize: '0.78rem',
+              fontWeight: 500, letterSpacing: '-0.01em',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              transition: 'background 0.15s',
             }}
           >
             {showPics ? 'Hide Photos' : 'Show Photos'}
           </button>
         </div>
 
-        {showPics && <div style={{ position: 'relative', marginBottom: '1.5rem', textAlign: 'center' }}>
+        {showPics && <div style={{ position: 'relative', marginBottom: '2rem', textAlign: 'center' }}>
           <img
             src={pics[picIndex]}
             alt={`Photo ${picIndex + 1}`}
-            style={{ maxWidth: '100%', borderRadius: 12, maxHeight: '700px', objectFit: 'cover' }}
+            style={{ maxWidth: '100%', borderRadius: 18, maxHeight: '700px', objectFit: 'cover', boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
           />
           <button
             onClick={() => setPicIndex((picIndex - 1 + pics.length) % pics.length)}
             style={{
-              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-              background: 'rgba(0,0,0,0.45)', color: '#fff', border: 'none',
-              borderRadius: '50%', width: 40, height: 40,
+              position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
+              background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+              color: 'var(--text)', border: 'none',
+              borderRadius: '50%', width: 44, height: 44,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.13)',
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -409,61 +439,68 @@ export default function Home() {
           <button
             onClick={() => setPicIndex((picIndex + 1) % pics.length)}
             style={{
-              position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-              background: 'rgba(0,0,0,0.45)', color: '#fff', border: 'none',
-              borderRadius: '50%', width: 40, height: 40,
+              position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+              background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+              color: 'var(--text)', border: 'none',
+              borderRadius: '50%', width: 44, height: 44,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.13)',
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
-          <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div style={{ marginTop: '0.6rem', fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
             {picIndex + 1} / {pics.length}
           </div>
         </div>}
 
-        {/* Tabbed card: Leaderboard + Announcements */}
-        {/* Bookkeeper tabs */}
-        <div style={{ display: 'flex', gap: '4px', paddingLeft: '12px', paddingRight: '12px' }}>
-          {(['leaderboard', 'announcements', 'hallofame', 'tournament', 'contact'] as const).map((tab) => {
-            const isActive = activeTab === tab;
-            const color = tab === 'leaderboard' ? '#0d9488' : tab === 'announcements' ? '#6366f1' : tab === 'hallofame' ? '#d97706' : tab === 'tournament' ? '#e11d48' : '#0ea5e9';
-            const lightBg = tab === 'leaderboard' ? '#e6fffa' : tab === 'announcements' ? '#ede9fe' : tab === 'hallofame' ? '#fef3c7' : tab === 'tournament' ? '#ffe4e6' : '#e0f2fe';
-            const label = tab === 'leaderboard' ? 'Leaderboard' : tab === 'announcements' ? 'Announcements' : tab === 'hallofame' ? 'Hall of Fame' : tab === 'tournament' ? 'Tournament' : 'Contact';
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: '0.45rem 1.25rem',
-                  background: isActive ? color : lightBg,
-                  color: isActive ? '#fff' : color,
-                  border: `1px solid ${color}`,
-                  borderBottom: isActive ? `1px solid var(--bg-card)` : `1px solid ${color}`,
-                  borderRadius: '8px 8px 0 0',
-                  cursor: 'pointer',
-                  fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                  position: 'relative', zIndex: isActive ? 1 : 0,
-                  transition: 'background 0.15s, color 0.15s',
-                  marginBottom: isActive ? '-1px' : '0',
-                  marginLeft: tab === 'contact' ? 'auto' : undefined,
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+        {/* Segmented tab control */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center',
+            background: 'rgba(0,0,0,0.06)', borderRadius: 980,
+            padding: '3px', gap: '2px',
+            width: '100%',
+          }}>
+            {(['leaderboard', 'announcements', 'hallofame', 'tournament', 'contact'] as const).map((tab) => {
+              const isActive = activeTab === tab;
+              const label = tab === 'leaderboard' ? 'Leaderboard' : tab === 'announcements' ? 'Announcements' : tab === 'hallofame' ? 'Hall of Fame' : tab === 'tournament' ? 'Tournament' : 'Contact';
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    flex: 1,
+                    padding: '0.45rem 1rem',
+                    background: isActive ? '#ffffff' : 'transparent',
+                    color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                    border: 'none',
+                    borderRadius: 980,
+                    cursor: 'pointer',
+                    fontSize: '0.78rem', fontWeight: isActive ? 600 : 500,
+                    letterSpacing: '-0.01em',
+                    transition: 'background 0.18s, color 0.18s',
+                    boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{
           background: 'var(--bg-card)',
-          border: `1px solid ${activeTab === 'leaderboard' ? '#0d9488' : activeTab === 'announcements' ? '#6366f1' : activeTab === 'hallofame' ? '#d97706' : activeTab === 'tournament' ? '#e11d48' : '#0ea5e9'}`,
-          borderRadius: 12, overflow: 'hidden',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: '2rem',
+          border: '1px solid var(--border)',
+          borderRadius: 18,
+          boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+          marginBottom: '2rem',
           display: 'flex', flexDirection: 'column', minHeight: '780px', maxHeight: '85vh',
+          overflow: 'hidden',
         }}>
 
           {activeTab === 'leaderboard' && (
@@ -777,10 +814,10 @@ export default function Home() {
                     <Field label="Team 1">
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <select value={t1p1} onChange={(e) => setT1p1(e.target.value)} style={selectStyle}>
-                          <option value="">Player 1</option>{memberOptions}
+                          <option value="">Player 1</option>{matchOptions([t1p2, t2p1, t2p2].filter(Boolean))}
                         </select>
                         <select value={t1p2} onChange={(e) => setT1p2(e.target.value)} style={selectStyle}>
-                          <option value="">Player 2</option>{memberOptions}
+                          <option value="">Player 2</option>{matchOptions([t1p1, t2p1, t2p2].filter(Boolean))}
                         </select>
                       </div>
                     </Field>
@@ -788,10 +825,10 @@ export default function Home() {
                     <Field label="Team 2">
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <select value={t2p1} onChange={(e) => setT2p1(e.target.value)} style={selectStyle}>
-                          <option value="">Player 1</option>{memberOptions}
+                          <option value="">Player 1</option>{matchOptions([t1p1, t1p2, t2p2].filter(Boolean))}
                         </select>
                         <select value={t2p2} onChange={(e) => setT2p2(e.target.value)} style={selectStyle}>
-                          <option value="">Player 2</option>{memberOptions}
+                          <option value="">Player 2</option>{matchOptions([t1p1, t1p2, t2p1].filter(Boolean))}
                         </select>
                       </div>
                     </Field>
