@@ -75,9 +75,61 @@ button {
   align-items: start;
 }
 
+/* Announcements */
+.ann-title   { font-size: 1.15rem; }
+.ann-body    { font-size: 1rem; }
+.ann-date    { font-size: 0.85rem; }
+.ann-chevron { font-size: 0.85rem; }
+
+@media (max-width: 768px) {
+  .ann-title   { font-size: 0.95rem; }
+  .ann-body    { font-size: 0.85rem; }
+  .ann-date    { font-size: 0.72rem; }
+  .ann-chevron { font-size: 0.75rem; }
+}
+
+/* Carousel image */
+.carousel-img {
+  max-width: 100%;
+  max-height: 700px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .carousel-img {
+    width: 100%;
+    height: auto;
+    max-height: none;
+  }
+}
+
 @media (max-width: 768px) {
   .main-grid {
     grid-template-columns: 1fr;
+  }
+
+  .marquee-track {
+    font-size: 1.4rem !important;
+  }
+
+  .tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .leaderboard-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

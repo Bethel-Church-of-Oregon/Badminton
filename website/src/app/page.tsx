@@ -176,6 +176,7 @@ export default function Home() {
   const pics = ['/pics/march-group-1.jpg', '/pics/march-champion.jpg'];
   const [picIndex, setPicIndex] = useState(0);
   const [showPics, setShowPics] = useState(true);
+  const touchStartX = useRef<number | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -409,7 +410,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '2.5rem 2rem' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '1.5rem 1rem' }}>
 
         {/* Photo carousel */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
@@ -439,11 +440,21 @@ export default function Home() {
           </button>
         </div>
 
-        {showPics && <div style={{ position: 'relative', marginBottom: '2rem', textAlign: 'center' }}>
+        {showPics && <div
+          style={{ position: 'relative', marginBottom: '2rem', textAlign: 'center' }}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 40) setPicIndex((i) => dx < 0 ? (i + 1) % pics.length : (i - 1 + pics.length) % pics.length);
+            touchStartX.current = null;
+          }}
+        >
           <img
             src={pics[picIndex]}
             alt={`Photo ${picIndex + 1}`}
-            style={{ maxWidth: '100%', borderRadius: 18, maxHeight: '700px', objectFit: 'cover', boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
+            className="carousel-img"
+            style={{ borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.10)', display: 'block' }}
           />
           <button
             onClick={() => setPicIndex((picIndex - 1 + pics.length) % pics.length)}
@@ -481,12 +492,12 @@ export default function Home() {
         </div>}
 
         {/* Segmented tab control */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+        <div className="tab-bar" style={{ marginBottom: '1.25rem' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center',
             background: 'rgba(0,0,0,0.06)', borderRadius: 980,
             padding: '3px', gap: '2px',
-            width: '100%',
+            width: '100%', minWidth: 'max-content',
           }}>
             {(['leaderboard', 'announcements', 'hallofame', 'tournament', 'contact'] as const).map((tab) => {
               const isActive = activeTab === tab;
@@ -528,14 +539,14 @@ export default function Home() {
         }}>
 
           {activeTab === 'leaderboard' && (
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <div className="leaderboard-scroll" style={{ overflowY: 'auto', flex: 1 }}>
+              <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '8%' }} />
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '11%' }} />
-                  <col style={{ width: '11%' }} />
-                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '7%' }} />
+                  <col style={{ width: '22%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '10%' }} />
                   <col />{/* About — takes remaining space */}
                 </colgroup>
                 <thead>
@@ -640,17 +651,17 @@ export default function Home() {
                       })}
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: a.body ? 'pointer' : 'default' }}
                     >
-                      <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{a.title}</div>
+                      <div className="ann-title" style={{ fontWeight: 600 }}>{a.title}</div>
                       {a.body && (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', userSelect: 'none' }}>
+                        <span className="ann-chevron" style={{ color: 'var(--text-muted)', userSelect: 'none' }}>
                           {expandedAnnouncements.has(a.id) ? '▲' : '▼'}
                         </span>
                       )}
                     </div>
                     {a.body && expandedAnnouncements.has(a.id) && (
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'pre-wrap', marginTop: '0.4rem', marginBottom: '0.35rem' }}>{a.body}</div>
+                      <div className="ann-body" style={{ color: 'var(--text-muted)', whiteSpace: 'pre-wrap', marginTop: '0.4rem', marginBottom: '0.35rem' }}>{a.body}</div>
                     )}
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    <div className="ann-date" style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                       {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                   </div>
@@ -721,7 +732,7 @@ export default function Home() {
                 </div>
               ) : (
                 <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                   {/* Add / Remove Member */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                     <SectionTitle>Add Member</SectionTitle>
