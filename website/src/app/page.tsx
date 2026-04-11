@@ -161,7 +161,10 @@ export default function Home() {
   // Toast
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'announcements' | 'hallofame' | 'tournament'>('leaderboard');
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'announcements' | 'hallofame' | 'tournament' | 'contact'>('leaderboard');
+  const pics = ['/pics/march-group-1.jpg', '/pics/march-champion.jpg'];
+  const [picIndex, setPicIndex] = useState(0);
+  const [showPics, setShowPics] = useState(true);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -372,14 +375,63 @@ export default function Home() {
           벧엘 배드민턴 그룹에 오신걸 환영합니다!!!
         </h1>
 
+        <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+          <button
+            onClick={() => setShowPics((v) => !v)}
+            style={{
+              background: 'none', border: '1px solid var(--border)', color: 'var(--text-muted)',
+              padding: '0.3rem 1rem', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem',
+            }}
+          >
+            {showPics ? 'Hide Photos' : 'Show Photos'}
+          </button>
+        </div>
+
+        {showPics && <div style={{ position: 'relative', marginBottom: '1.5rem', textAlign: 'center' }}>
+          <img
+            src={pics[picIndex]}
+            alt={`Photo ${picIndex + 1}`}
+            style={{ maxWidth: '100%', borderRadius: 12, maxHeight: '700px', objectFit: 'cover' }}
+          />
+          <button
+            onClick={() => setPicIndex((picIndex - 1 + pics.length) % pics.length)}
+            style={{
+              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+              background: 'rgba(0,0,0,0.45)', color: '#fff', border: 'none',
+              borderRadius: '50%', width: 40, height: 40,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <button
+            onClick={() => setPicIndex((picIndex + 1) % pics.length)}
+            style={{
+              position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+              background: 'rgba(0,0,0,0.45)', color: '#fff', border: 'none',
+              borderRadius: '50%', width: 40, height: 40,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+          <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {picIndex + 1} / {pics.length}
+          </div>
+        </div>}
+
         {/* Tabbed card: Leaderboard + Announcements */}
         {/* Bookkeeper tabs */}
-        <div style={{ display: 'flex', gap: '4px', paddingLeft: '12px' }}>
-          {(['leaderboard', 'announcements', 'hallofame', 'tournament'] as const).map((tab) => {
+        <div style={{ display: 'flex', gap: '4px', paddingLeft: '12px', paddingRight: '12px' }}>
+          {(['leaderboard', 'announcements', 'hallofame', 'tournament', 'contact'] as const).map((tab) => {
             const isActive = activeTab === tab;
-            const color = tab === 'leaderboard' ? '#0d9488' : tab === 'announcements' ? '#6366f1' : tab === 'hallofame' ? '#d97706' : '#e11d48';
-            const lightBg = tab === 'leaderboard' ? '#e6fffa' : tab === 'announcements' ? '#ede9fe' : tab === 'hallofame' ? '#fef3c7' : '#ffe4e6';
-            const label = tab === 'leaderboard' ? 'Leaderboard' : tab === 'announcements' ? 'Announcements' : tab === 'hallofame' ? 'Hall of Fame' : 'Tournament';
+            const color = tab === 'leaderboard' ? '#0d9488' : tab === 'announcements' ? '#6366f1' : tab === 'hallofame' ? '#d97706' : tab === 'tournament' ? '#e11d48' : '#0ea5e9';
+            const lightBg = tab === 'leaderboard' ? '#e6fffa' : tab === 'announcements' ? '#ede9fe' : tab === 'hallofame' ? '#fef3c7' : tab === 'tournament' ? '#ffe4e6' : '#e0f2fe';
+            const label = tab === 'leaderboard' ? 'Leaderboard' : tab === 'announcements' ? 'Announcements' : tab === 'hallofame' ? 'Hall of Fame' : tab === 'tournament' ? 'Tournament' : 'Contact';
             return (
               <button
                 key={tab}
@@ -397,6 +449,7 @@ export default function Home() {
                   position: 'relative', zIndex: isActive ? 1 : 0,
                   transition: 'background 0.15s, color 0.15s',
                   marginBottom: isActive ? '-1px' : '0',
+                  marginLeft: tab === 'contact' ? 'auto' : undefined,
                 }}
               >
                 {label}
@@ -407,7 +460,7 @@ export default function Home() {
 
         <div style={{
           background: 'var(--bg-card)',
-          border: `1px solid ${activeTab === 'leaderboard' ? '#0d9488' : activeTab === 'announcements' ? '#6366f1' : activeTab === 'hallofame' ? '#d97706' : '#e11d48'}`,
+          border: `1px solid ${activeTab === 'leaderboard' ? '#0d9488' : activeTab === 'announcements' ? '#6366f1' : activeTab === 'hallofame' ? '#d97706' : activeTab === 'tournament' ? '#e11d48' : '#0ea5e9'}`,
           borderRadius: 12, overflow: 'hidden',
           boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: '2rem',
           display: 'flex', flexDirection: 'column', minHeight: '780px', maxHeight: '85vh',
@@ -550,6 +603,14 @@ export default function Home() {
               <div style={{ fontSize: '2.5rem' }}>{activeTab === 'hallofame' ? '🏆' : '📅'}</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '0.1em', color: activeTab === 'hallofame' ? '#d97706' : '#e11d48' }}>TBA</div>
               <div style={{ fontSize: '0.85rem' }}>{activeTab === 'hallofame' ? 'Hall of Fame coming soon.' : 'Tournament schedule coming soon.'}</div>
+            </div>
+          )}
+
+          {activeTab === 'contact' && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: '2.5rem' }}>💬</div>
+              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0ea5e9' }}>참여문의</div>
+              <div style={{ fontSize: '0.95rem' }}>KakaoTalk ID: <strong style={{ color: 'var(--text)', letterSpacing: '0.03em' }}>iankim0712</strong></div>
             </div>
           )}
         </div>
