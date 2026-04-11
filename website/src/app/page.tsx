@@ -158,6 +158,17 @@ export default function Home() {
   const [t2p2, setT2p2] = useState('');
   const [matchWinner, setMatchWinner] = useState<'1' | '2' | ''>('');
 
+  // Theme
+  const [theme, setTheme] = useState<'default' | 'colorful'>('default');
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') as 'default' | 'colorful' | null;
+    if (saved) setTheme(saved);
+  }, []);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
   // Toast
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<string>>(new Set());
@@ -376,11 +387,12 @@ export default function Home() {
     <>
       {/* Hero header */}
       <div style={{
-        background: 'rgba(255,255,255,0.72)',
+        background: 'var(--header-bg)',
         backdropFilter: 'saturate(180%) blur(20px)',
         WebkitBackdropFilter: 'saturate(180%) blur(20px)',
         borderBottom: '1px solid var(--border)',
-        padding: '1.5rem 0',
+        padding: '1.5rem 0 0.75rem',
+        position: 'relative',
       }}>
         <div className="marquee-outer">
           <div className="marquee-track" style={{
@@ -400,7 +412,7 @@ export default function Home() {
       <div style={{ maxWidth: 1600, margin: '0 auto', padding: '2.5rem 2rem' }}>
 
         {/* Photo carousel */}
-        <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
           <button
             onClick={() => setShowPics((v) => !v)}
             style={{
@@ -408,10 +420,22 @@ export default function Home() {
               padding: '0.35rem 1.1rem', borderRadius: 980, cursor: 'pointer', fontSize: '0.78rem',
               fontWeight: 500, letterSpacing: '-0.01em',
               boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-              transition: 'background 0.15s',
             }}
           >
             {showPics ? 'Hide Photos' : 'Show Photos'}
+          </button>
+          <button
+            onClick={() => setTheme((t) => t === 'default' ? 'colorful' : 'default')}
+            style={{
+              background: theme === 'colorful' ? 'linear-gradient(135deg,#a855f7,#ec4899)' : 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              color: theme === 'colorful' ? '#fff' : 'var(--text-muted)',
+              padding: '0.35rem 1.1rem', borderRadius: 980, cursor: 'pointer', fontSize: '0.78rem',
+              fontWeight: 500, letterSpacing: '-0.01em',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            }}
+          >
+            {theme === 'colorful' ? 'Colorful Theme' : 'Default Theme'}
           </button>
         </div>
 

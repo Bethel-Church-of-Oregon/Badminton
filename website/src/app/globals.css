@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
 
-:root {
+:root,
+[data-theme="default"] {
   --bg: #f5f5f7;
   --bg-card: #ffffff;
   --bg-header: #fafafa;
@@ -16,6 +17,27 @@
   --gold: #f59e0b;
   --silver: #94a3b8;
   --bronze: #b45309;
+  --header-bg: rgba(255,255,255,0.72);
+}
+
+
+[data-theme="colorful"] {
+  --bg: #fdf4ff;
+  --bg-card: #ffffff;
+  --bg-header: #f5f0ff;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-light: #ede9fe;
+  --text: #1e1b4b;
+  --text-secondary: #3730a3;
+  --text-muted: #7c3aed;
+  --border: #ddd6fe;
+  --danger: #f43f5e;
+  --danger-hover: #e11d48;
+  --gold: #f59e0b;
+  --silver: #94a3b8;
+  --bronze: #b45309;
+  --header-bg: rgba(253,244,255,0.82);
 }
 
 * {
