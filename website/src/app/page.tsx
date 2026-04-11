@@ -363,10 +363,6 @@ export default function Home() {
 
   const sortedMembers = [...members].sort((a, b) => a.name.localeCompare(b.name));
 
-  const memberOptions = sortedMembers.map((m) => (
-    <option key={m.id} value={m.id}>{m.name} ({m.elo})</option>
-  ));
-
   function matchOptions(exclude: string[]) {
     return sortedMembers.map((m) => (
       <option key={m.id} value={m.id} disabled={exclude.includes(m.id)}>
@@ -540,10 +536,10 @@ export default function Home() {
 
           {activeTab === 'leaderboard' && (
             <div className="leaderboard-scroll" style={{ overflowY: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <table style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '7%' }} />
-                  <col style={{ width: '22%' }} />
+                  <col style={{ width: '6%' }} />
+                  <col className="col-player" />
                   <col style={{ width: '10%' }} />
                   <col style={{ width: '10%' }} />
                   <col style={{ width: '10%' }} />
@@ -586,10 +582,10 @@ export default function Home() {
                         }}>{m.rank}</td>
 
                         <td style={{ padding: '0.45rem 0.75rem', overflow: 'hidden' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                            <Avatar name={m.name} portrait={m.portrait} size={40} />
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, maxWidth: '100%' }}>
+                            <Avatar name={m.name} portrait={m.portrait} size={36} />
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '15ch' }}>{m.name}</div>
+                              <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                               <div style={{
                                 display: 'inline-block', marginTop: '0.1rem',
                                 fontSize: '0.62rem', fontWeight: 700,

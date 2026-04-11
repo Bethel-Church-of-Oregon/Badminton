@@ -88,6 +88,13 @@ button {
   .ann-chevron { font-size: 0.75rem; }
 }
 
+/* Leaderboard player column */
+.col-player { width: 10%; }
+
+@media (max-width: 768px) {
+  .col-player { width: 18%; }
+}
+
 /* Carousel image */
 .carousel-img {
   max-width: 100%;
