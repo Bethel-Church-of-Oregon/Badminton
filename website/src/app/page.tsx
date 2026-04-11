@@ -173,7 +173,7 @@ export default function Home() {
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
   const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'announcements' | 'hallofame' | 'tournament' | 'contact'>('leaderboard');
-  const pics = ['/pics/march-group-1.jpg', '/pics/march-champion.jpg'];
+  const pics = ['/pics/march-group-1.jpg'];
   const [picIndex, setPicIndex] = useState(0);
   const [showPics, setShowPics] = useState(true);
   const touchStartX = useRef<number | null>(null);
