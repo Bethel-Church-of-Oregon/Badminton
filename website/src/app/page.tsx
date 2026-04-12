@@ -109,11 +109,12 @@ function Avatar({ name, portrait, size = 40 }: { name: string; portrait?: string
 const ALL_PORTRAITS = [
   'missing-portrait.png',
   ...Array.from({ length: 251 }, (_, i) => `${String(i + 1).padStart(4, '0')}_Normal.png`),
+  '0493_Normal.png',
 ];
 
 function randomPortrait() {
   // skip index 0 (missing-portrait)
-  return ALL_PORTRAITS[Math.floor(Math.random() * 251) + 1];
+  return ALL_PORTRAITS[Math.floor(Math.random() * (ALL_PORTRAITS.length - 1)) + 1];
 }
 
 // ---------------------------------------------------------------------------
@@ -398,10 +399,10 @@ export default function Home() {
             letterSpacing: '-0.03em',
             lineHeight: 1.1,
           }}>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다!!!</span>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
+            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
           </div>
         </div>
       </div>
