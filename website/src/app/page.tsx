@@ -43,9 +43,9 @@ interface Tier {
 }
 
 function getTier(elo: number): Tier {
-  if (elo >= 1300) return { label: 'Diamond',  color: '#8b5cf6', bg: '#ede9fe' };
-  if (elo >= 1200) return { label: 'Platinum', color: '#0891b2', bg: '#e0f2fe' };
-  if (elo >= 1100) return { label: 'Gold',     color: '#d97706', bg: '#fef3c7' };
+  if (elo >= 1600) return { label: 'Diamond',  color: '#8b5cf6', bg: '#ede9fe' };
+  if (elo >= 1400) return { label: 'Platinum', color: '#0891b2', bg: '#e0f2fe' };
+  if (elo >= 1200) return { label: 'Gold',     color: '#d97706', bg: '#fef3c7' };
   if (elo >= 1000) return { label: 'Silver',   color: '#64748b', bg: '#f1f5f9' };
   return                   { label: 'Bronze',  color: '#92400e', bg: '#fef3c7' };
 }

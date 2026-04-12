@@ -1,4 +1,4 @@
-const K = 32;
+const K = 20;
 
 function expected(myAvg: number, oppAvg: number) {
   return 1 / (1 + Math.pow(10, (oppAvg - myAvg) / 400));
