@@ -10,9 +10,12 @@ export async function GET() {
     FROM members
     ORDER BY elo DESC
   `;
-  return NextResponse.json(
-    rows.map((m, i) => ({ ...m, rank: i + 1 })),
-  );
+  let rank = 1;
+  const ranked = rows.map((m, i) => {
+    if (i > 0 && m.elo < rows[i - 1].elo) rank = i + 1;
+    return { ...m, rank };
+  });
+  return NextResponse.json(ranked);
 }
 
 export async function POST(req: NextRequest) {
