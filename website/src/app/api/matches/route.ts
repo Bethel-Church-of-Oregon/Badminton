@@ -88,5 +88,13 @@ export async function POST(req: NextRequest) {
     `;
   }
 
+  // Update last_updated timestamp only if the value has changed
+  const nowStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  await sql`
+    INSERT INTO settings (key, value) VALUES ('last_updated', ${nowStr})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    WHERE settings.value IS DISTINCT FROM EXCLUDED.value
+  `;
+
   return NextResponse.json({ message: 'Match recorded successfully' });
 }

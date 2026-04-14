@@ -129,6 +129,7 @@ export default function Home() {
   const [newAnnouncementBody, setNewAnnouncementBody] = useState('');
   const [headerText, setHeaderText] = useState('벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 19일)은 본당에서 (오후 5시)에 모이겠습니다!!!');
   const [editHeaderText, setEditHeaderText] = useState('');
+  const [lastUpdated, setLastUpdated] = useState('');
 
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
@@ -207,6 +208,7 @@ export default function Home() {
       setHeaderText(data.header_text);
       setEditHeaderText(data.header_text);
     }
+    if (data.last_updated) setLastUpdated(data.last_updated);
   }, []);
 
   useEffect(() => {
@@ -676,6 +678,15 @@ export default function Home() {
                   })}
                 </tbody>
               </table>
+              <div style={{
+                padding: '0.5rem 0.75rem',
+                textAlign: 'left',
+                fontSize: '0.72rem',
+                color: 'var(--text-muted)',
+                borderTop: '1px solid var(--border)',
+              }}>
+                Last Updated: {lastUpdated || '—'}
+              </div>
             </div>
           )}
 
@@ -1114,11 +1125,12 @@ export default function Home() {
                             month: 'short', day: 'numeric',
                           });
                           return (
-                            <div key={match.id} style={{
+                            <div key={match.id} style={{ overflowX: 'auto', borderRadius: 7 }}>
+                            <div style={{
                               display: 'flex', alignItems: 'center', gap: '0.6rem',
                               padding: '0.4rem 0.6rem',
                               background: 'var(--bg-header)', borderRadius: 7,
-                              flexWrap: 'nowrap', minWidth: 0,
+                              flexWrap: 'nowrap', minWidth: '420px',
                             }}>
                                 <div style={{
                                 width: 22, height: 22, borderRadius: 5, flexShrink: 0,
@@ -1130,13 +1142,15 @@ export default function Home() {
 
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0, width: '52px' }}>{date}</span>
 
-                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                 {match.teammates.length > 0 && (
-                                  <div style={{ width: '130px', flexShrink: 0, overflow: 'hidden' }}>
+                                  <div style={{ width: '130px', flexShrink: 0 }}>
                                     <PlayerRow label="with" names={match.teammates} portraitMap={portraitMap} />
                                   </div>
                                 )}
-                                <PlayerRow label="vs" names={match.opponents} muted portraitMap={portraitMap} />
+                                <div style={{ width: '130px', flexShrink: 0 }}>
+                                  <PlayerRow label="vs" names={match.opponents} muted portraitMap={portraitMap} />
+                                </div>
                               </div>
 
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', flexShrink: 0 }}>
@@ -1146,6 +1160,7 @@ export default function Home() {
                                   color: match.elo_change >= 0 ? '#16a34a' : '#dc2626',
                                 }}>{eloSign}{match.elo_change}</span>
                               </div>
+                            </div>
                             </div>
                           );
                         })}
@@ -1354,8 +1369,8 @@ function PlayerRow({ label, names, muted, portraitMap }: { label: string; names:
           <span style={{
             fontSize: '0.82rem', fontWeight: muted ? 400 : 500,
             color: muted ? 'var(--text-muted)' : 'var(--text)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{name}</span>
+            whiteSpace: 'nowrap',
+          }}>{name.slice(0, 2)}</span>
         </div>
       ))}
     </div>
