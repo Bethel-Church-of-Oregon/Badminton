@@ -44,6 +44,22 @@ export async function initDB() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )
+  `;
+  await sql`
+    INSERT INTO settings (key, value)
+    VALUES ('header_text', '벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 19일)은 본당에서 (오후 5시)에 모이겠습니다!!!')
+    ON CONFLICT (key) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO settings (key, value)
+    VALUES ('last_updated', '')
+    ON CONFLICT (key) DO NOTHING
+  `;
   initialized = true;
 }
 

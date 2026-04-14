@@ -127,6 +127,9 @@ export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [newAnnouncementTitle, setNewAnnouncementTitle] = useState('');
   const [newAnnouncementBody, setNewAnnouncementBody] = useState('');
+  const [headerText, setHeaderText] = useState('벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 19일)은 본당에서 (오후 5시)에 모이겠습니다!!!');
+  const [editHeaderText, setEditHeaderText] = useState('');
+  const [lastUpdated, setLastUpdated] = useState('');
 
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
@@ -178,6 +181,8 @@ export default function Home() {
   const [picIndex, setPicIndex] = useState(0);
   const [showPics, setShowPics] = useState(true);
   const touchStartX = useRef<number | null>(null);
+  const [sortCol, setSortCol] = useState<'rank' | 'name' | 'elo' | 'winrate' | 'games' | 'bio'>('rank');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -196,12 +201,23 @@ export default function Home() {
     setAnnouncements(await res.json());
   }, []);
 
+  const loadSettings = useCallback(async () => {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    if (data.header_text) {
+      setHeaderText(data.header_text);
+      setEditHeaderText(data.header_text);
+    }
+    if (data.last_updated) setLastUpdated(data.last_updated);
+  }, []);
+
   useEffect(() => {
     loadMembers();
     loadAnnouncements();
+    loadSettings();
     const interval = setInterval(() => { loadMembers(); loadAnnouncements(); }, 30_000);
     return () => clearInterval(interval);
-  }, [loadMembers, loadAnnouncements]);
+  }, [loadMembers, loadAnnouncements, loadSettings]);
 
   // Keep selected member in sync after reload
   useEffect(() => {
@@ -327,6 +343,20 @@ export default function Home() {
     await loadMembers();
   }
 
+  async function saveHeaderText() {
+    const value = editHeaderText.trim();
+    if (!value) return showToast('Header text cannot be empty.', true);
+    const res = await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'header_text', value, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error ?? 'Error saving header.', true);
+    setHeaderText(value);
+    showToast('Header updated.');
+  }
+
   async function addAnnouncement() {
     const title = newAnnouncementTitle.trim();
     if (!title) return showToast('Title is required.', true);
@@ -364,6 +394,22 @@ export default function Home() {
 
   const sortedMembers = [...members].sort((a, b) => a.name.localeCompare(b.name));
 
+  const displayMembers = [...members].sort((a, b) => {
+    let cmp = 0;
+    if (sortCol === 'rank')    cmp = a.rank - b.rank;
+    if (sortCol === 'name')    cmp = a.name.localeCompare(b.name);
+    if (sortCol === 'elo')     cmp = a.elo - b.elo;
+    if (sortCol === 'winrate') cmp = (a.games_played ? a.wins / a.games_played : 0) - (b.games_played ? b.wins / b.games_played : 0);
+    if (sortCol === 'games')   cmp = a.games_played - b.games_played;
+    if (sortCol === 'bio')     cmp = a.bio.localeCompare(b.bio);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+
+  function handleSort(col: typeof sortCol) {
+    if (sortCol === col) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+  }
+
   function matchOptions(exclude: string[]) {
     return sortedMembers.map((m) => (
       <option key={m.id} value={m.id} disabled={exclude.includes(m.id)}>
@@ -399,10 +445,10 @@ export default function Home() {
             letterSpacing: '-0.03em',
             lineHeight: 1.1,
           }}>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
-            <span>벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 12일)은 본당에서 (오후 5시)에 모이겠습니다!!!</span>
+            <span>{headerText}</span>
+            <span>{headerText}</span>
+            <span>{headerText}</span>
+            <span>{headerText}</span>
           </div>
         </div>
       </div>
@@ -549,12 +595,18 @@ export default function Home() {
                 </colgroup>
                 <thead>
                   <tr style={{ background: 'var(--bg-header)' }}>
-                    <th style={thStyle('center')}>Rank</th>
-                    <th style={thStyle('center')}>Player</th>
-                    <th style={thStyle('center')}>ELO</th>
-                    <th style={thStyle('center')}>Win Rate</th>
-                    <th style={thStyle('center')}>Games</th>
-                    <th style={thStyle('center')}>To My Opponents</th>
+                    {([
+                      { col: 'rank',    label: 'Rank',            align: 'center' },
+                      { col: 'name',    label: 'Player',          align: 'left'   },
+                      { col: 'elo',     label: 'ELO',             align: 'center' },
+                      { col: 'winrate', label: 'Win Rate',        align: 'center' },
+                      { col: 'games',   label: 'Games',           align: 'center' },
+                      { col: 'bio',     label: 'To My Opponents', align: 'center' },
+                    ] as const).map(({ col, label, align }) => (
+                      <th key={col} style={{ ...thStyle(align), cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort(col)}>
+                        {label}{sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -564,7 +616,7 @@ export default function Home() {
                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                       No members yet. Add some via the admin panel.
                     </td></tr>
-                  ) : members.map((m, idx) => {
+                  ) : displayMembers.map((m, idx) => {
                     const tier = getTier(m.elo);
                     return (
                       <tr
@@ -626,6 +678,15 @@ export default function Home() {
                   })}
                 </tbody>
               </table>
+              <div style={{
+                padding: '0.5rem 0.75rem',
+                textAlign: 'left',
+                fontSize: '0.72rem',
+                color: 'var(--text-muted)',
+                borderTop: '1px solid var(--border)',
+              }}>
+                Last Updated: {lastUpdated || '—'}
+              </div>
             </div>
           )}
 
@@ -730,6 +791,21 @@ export default function Home() {
                 </div>
               ) : (
                 <>
+                {/* Header text editor */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <SectionTitle>Header Text</SectionTitle>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <input
+                      type="text"
+                      value={editHeaderText}
+                      onChange={(e) => setEditHeaderText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && saveHeaderText()}
+                      placeholder="Header marquee text"
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <button onClick={saveHeaderText} style={btnPrimary}>Save</button>
+                  </div>
+                </div>
                 <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                   {/* Add / Remove Member */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1049,11 +1125,12 @@ export default function Home() {
                             month: 'short', day: 'numeric',
                           });
                           return (
-                            <div key={match.id} style={{
+                            <div key={match.id} style={{ overflowX: 'auto', borderRadius: 7 }}>
+                            <div style={{
                               display: 'flex', alignItems: 'center', gap: '0.6rem',
                               padding: '0.4rem 0.6rem',
                               background: 'var(--bg-header)', borderRadius: 7,
-                              flexWrap: 'nowrap', minWidth: 0,
+                              flexWrap: 'nowrap', minWidth: '420px',
                             }}>
                                 <div style={{
                                 width: 22, height: 22, borderRadius: 5, flexShrink: 0,
@@ -1065,13 +1142,15 @@ export default function Home() {
 
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0, width: '52px' }}>{date}</span>
 
-                                <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                 {match.teammates.length > 0 && (
-                                  <div style={{ width: '130px', flexShrink: 0, overflow: 'hidden' }}>
+                                  <div style={{ width: '130px', flexShrink: 0 }}>
                                     <PlayerRow label="with" names={match.teammates} portraitMap={portraitMap} />
                                   </div>
                                 )}
-                                <PlayerRow label="vs" names={match.opponents} muted portraitMap={portraitMap} />
+                                <div style={{ width: '130px', flexShrink: 0 }}>
+                                  <PlayerRow label="vs" names={match.opponents} muted portraitMap={portraitMap} />
+                                </div>
                               </div>
 
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', flexShrink: 0 }}>
@@ -1081,6 +1160,7 @@ export default function Home() {
                                   color: match.elo_change >= 0 ? '#16a34a' : '#dc2626',
                                 }}>{eloSign}{match.elo_change}</span>
                               </div>
+                            </div>
                             </div>
                           );
                         })}
@@ -1289,8 +1369,8 @@ function PlayerRow({ label, names, muted, portraitMap }: { label: string; names:
           <span style={{
             fontSize: '0.82rem', fontWeight: muted ? 400 : 500,
             color: muted ? 'var(--text-muted)' : 'var(--text)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{name}</span>
+            whiteSpace: 'nowrap',
+          }}>{name.slice(0, 2)}</span>
         </div>
       ))}
     </div>
