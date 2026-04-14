@@ -685,7 +685,7 @@ export default function Home() {
                 color: 'var(--text-muted)',
                 borderTop: '1px solid var(--border)',
               }}>
-                Last Updated: {lastUpdated || '—'}
+                Last Updated: {lastUpdated ? new Date(lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
               </div>
             </div>
           )}

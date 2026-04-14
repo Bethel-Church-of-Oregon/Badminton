@@ -88,12 +88,13 @@ export async function POST(req: NextRequest) {
     `;
   }
 
-  // Update last_updated timestamp only if the value has changed
-  const nowStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Update last_updated only when the stored date differs from today's date
+  const nowISO = new Date().toISOString();
+  const todayDate = nowISO.slice(0, 10); // YYYY-MM-DD
   await sql`
-    INSERT INTO settings (key, value) VALUES ('last_updated', ${nowStr})
+    INSERT INTO settings (key, value) VALUES ('last_updated', ${nowISO})
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    WHERE settings.value IS DISTINCT FROM EXCLUDED.value
+    WHERE LEFT(settings.value, 10) IS DISTINCT FROM ${todayDate}
   `;
 
   return NextResponse.json({ message: 'Match recorded successfully' });
