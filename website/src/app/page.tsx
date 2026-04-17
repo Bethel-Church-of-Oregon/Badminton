@@ -766,7 +766,7 @@ export default function Home() {
               <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>
                 Tournament Champions
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                 {/* April 2026 */}
                 <div style={{
                   background: 'var(--bg-card)', border: '1px solid var(--border)',
