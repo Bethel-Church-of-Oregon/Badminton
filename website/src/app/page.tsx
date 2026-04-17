@@ -182,7 +182,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'announcements' | 'hallofame' | 'tournament' | 'contact'>('leaderboard');
   const pics = ['/pics/march-group-1.jpg'];
   const [picIndex, setPicIndex] = useState(0);
-  const [showPics, setShowPics] = useState(true);
+  const [showPics, setShowPics] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const [sortCol, setSortCol] = useState<'rank' | 'name' | 'elo' | 'winrate' | 'games' | 'bio'>('rank');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -761,11 +761,57 @@ export default function Home() {
             )
           )}
 
-          {(activeTab === 'hallofame' || activeTab === 'tournament') && (
+          {activeTab === 'hallofame' && (
+            <div style={{ padding: '1rem 1.5rem' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>
+                Tournament Champions
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                {/* April 2026 */}
+                <div style={{
+                  background: 'var(--bg-card)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '1.25rem 1.5rem',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
+                  minWidth: 180,
+                }}>
+                  <Avatar name="?" portrait="missing-portrait.png" size={56} />
+                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    April 2026
+                  </div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>TBD</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>🏆 Tournament Champion</div>
+                </div>
+
+                {/* March 2026 */}
+                {(() => {
+                  const m = members.find((m) => m.name === '용재');
+                  return (
+                    <div style={{
+                      background: 'var(--bg-card)', border: '1px solid var(--border)',
+                      borderRadius: 12, padding: '1.25rem 1.5rem',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
+                      minWidth: 180,
+                    }}>
+                      <Avatar name="용재" portrait={m?.portrait} size={56} />
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        March 2026
+                      </div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>용재</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>🏆 Tournament Champion</div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'tournament' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '2.5rem' }}>{activeTab === 'hallofame' ? '🏆' : '📅'}</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '0.1em', color: activeTab === 'hallofame' ? '#d97706' : '#e11d48' }}>TBA</div>
-              <div style={{ fontSize: '0.85rem' }}>{activeTab === 'hallofame' ? 'Hall of Fame coming soon.' : 'Tournament schedule coming soon.'}</div>
+              <div style={{ fontSize: '2.5rem' }}>📅</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '0.1em', color: '#e11d48' }}>TBA</div>
+              <div style={{ fontSize: '0.85rem' }}>Tournament schedule coming soon.</div>
             </div>
           )}
 
@@ -1188,7 +1234,8 @@ export default function Home() {
                   ) : matchHistory.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matches recorded yet.</div>
                   ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '260px', overflowY: 'auto' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: '420px' }}>
                         {matchHistory.map((match) => {
                           const eloSign = match.elo_change >= 0 ? '+' : '';
                           const date = new Date(match.played_at).toLocaleDateString('en-US', {
@@ -1196,12 +1243,12 @@ export default function Home() {
                           });
                           const isPenalty = match.type === 'penalty';
                           return (
-                            <div key={match.id} style={{ overflowX: 'auto', borderRadius: 7 }}>
+                            <div key={match.id} style={{ borderRadius: 7 }}>
                             <div style={{
                               display: 'flex', alignItems: 'center', gap: '0.6rem',
                               padding: '0.4rem 0.6rem',
                               background: 'var(--bg-header)', borderRadius: 7,
-                              flexWrap: 'nowrap', minWidth: isPenalty ? 'unset' : '420px',
+                              flexWrap: 'nowrap',
                             }}>
                                 <div style={{
                                 width: 22, height: 22, borderRadius: 5, flexShrink: 0,
@@ -1239,6 +1286,7 @@ export default function Home() {
                             </div>
                           );
                         })}
+                        </div>
                       </div>
                   )}
                 </div>
