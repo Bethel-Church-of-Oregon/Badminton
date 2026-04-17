@@ -60,7 +60,24 @@ export async function initDB() {
     VALUES ('last_updated', '')
     ON CONFLICT (key) DO NOTHING
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS inactivity_penalties (
+      id         TEXT PRIMARY KEY,
+      player_id  TEXT NOT NULL,
+      applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      elo_before INTEGER NOT NULL,
+      elo_after  INTEGER NOT NULL
+    )
+  `;
   initialized = true;
+}
+
+export async function touchLastUpdated() {
+  const nowISO = new Date().toISOString();
+  await sql`
+    INSERT INTO settings (key, value) VALUES ('last_updated', ${nowISO})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+  `;
 }
 
 export { sql };

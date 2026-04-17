@@ -7,7 +7,6 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  // Fetch all rows for this player's matches, joining with other participants
   const { rows } = await sql`
     SELECT
       m.id          AS match_id,
@@ -27,9 +26,9 @@ export async function GET(
     LIMIT 50
   `;
 
-  // Group rows by match_id
   const matchMap = new Map<string, {
     id: string;
+    type: 'match';
     played_at: string;
     won: boolean;
     elo_before: number;
@@ -43,6 +42,7 @@ export async function GET(
     if (!matchMap.has(row.match_id)) {
       matchMap.set(row.match_id, {
         id: row.match_id,
+        type: 'match',
         played_at: row.played_at,
         won: Number(row.my_team) === Number(row.winner),
         elo_before: row.elo_before,
@@ -60,5 +60,26 @@ export async function GET(
     }
   }
 
-  return NextResponse.json(Array.from(matchMap.values()));
+  const { rows: penalties } = await sql`
+    SELECT id, applied_at, elo_before, elo_after
+    FROM inactivity_penalties
+    WHERE player_id = ${id}
+    ORDER BY applied_at DESC
+    LIMIT 24
+  `;
+
+  const penaltyEntries = penalties.map((p) => ({
+    id: p.id,
+    type: 'penalty' as const,
+    played_at: p.applied_at,
+    elo_before: p.elo_before,
+    elo_after: p.elo_after,
+    elo_change: p.elo_after - p.elo_before,
+  }));
+
+  const combined = [...Array.from(matchMap.values()), ...penaltyEntries].sort(
+    (a, b) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime(),
+  );
+
+  return NextResponse.json(combined);
 }

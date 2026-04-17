@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, initDB } from '@/lib/db';
+import { sql, initDB, touchLastUpdated } from '@/lib/db';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin';
 
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
       VALUES (${id}, ${name}, ${bio}, ${portrait})
       RETURNING id, name, elo, wins, losses, games_played, bio, portrait
     `;
+    await touchLastUpdated();
     return NextResponse.json(rows[0], { status: 201 });
   } catch (err: unknown) {
     if ((err as { code?: string }).code === '23505') {

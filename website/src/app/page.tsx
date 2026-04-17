@@ -23,13 +23,14 @@ interface Announcement {
 
 interface MatchEntry {
   id: string;
+  type?: 'match' | 'penalty';
   played_at: string;
-  won: boolean;
+  won?: boolean;
   elo_before: number;
   elo_after: number;
   elo_change: number;
-  teammates: string[];
-  opponents: string[];
+  teammates?: string[];
+  opponents?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +139,8 @@ export default function Home() {
   // Admin state
   const [adminOpen, setAdminOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [inactiveMembers, setInactiveMembers] = useState<{ id: string; name: string; elo: number }[] | null>(null);
+  const [inactiveMembersLoading, setInactiveMembersLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberBio, setNewMemberBio] = useState('');
@@ -251,8 +254,14 @@ export default function Home() {
   // Admin actions
   // ---------------------------------------------------------------------------
 
-  function unlock() {
+  async function unlock() {
     if (!password) return showToast('Enter the admin password.', true);
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) return showToast('Incorrect password.', true);
     setUnlocked(true);
   }
 
@@ -272,7 +281,7 @@ export default function Home() {
     setNewMemberBio('');
     setNewMemberPortrait(randomPortrait());
     showToast(`${name} added (ELO: 1000).`);
-    await loadMembers();
+    await Promise.all([loadMembers(), loadSettings()]);
   }
 
   async function removeMember(id: string) {
@@ -308,7 +317,7 @@ export default function Home() {
 
     setEditingMember(null);
     showToast('Member updated.');
-    await loadMembers();
+    await Promise.all([loadMembers(), loadSettings()]);
   }
 
   async function updateMemberPortrait(id: string, portrait: string) {
@@ -340,7 +349,30 @@ export default function Home() {
 
     setT1p1(''); setT1p2(''); setT2p1(''); setT2p2(''); setMatchWinner('');
     showToast('Match recorded. ELO updated.');
-    await loadMembers();
+    await Promise.all([loadMembers(), loadSettings()]);
+  }
+
+  async function loadInactiveMembers() {
+    setInactiveMembersLoading(true);
+    const res = await fetch(`/api/admin/inactivity?password=${encodeURIComponent(password)}`);
+    const data = await res.json();
+    setInactiveMembersLoading(false);
+    if (!res.ok) return showToast(data.error ?? 'Error loading inactive members.', true);
+    setInactiveMembers(data.members);
+  }
+
+  async function applyInactivityPenalty() {
+    const res = await fetch('/api/admin/inactivity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error ?? 'Error applying penalty.', true);
+    if (data.total === 0) return showToast('No inactive members to penalize.');
+    showToast(`Penalty applied to ${data.total} member${data.total > 1 ? 's' : ''}.`);
+    setInactiveMembers(null);
+    await Promise.all([loadMembers(), loadSettings()]);
   }
 
   async function saveHeaderText() {
@@ -840,80 +872,78 @@ export default function Home() {
                       </div>
                     </Field>
                     <button onClick={addMember} style={btnPrimary}>Add Member</button>
+                  </div>
 
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>
-                        Current Members
-                      </label>
-                      {members.length === 0 ? (
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No members yet.</p>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                          {[...members].sort((a, b) => a.name.localeCompare(b.name)).map((m) => (
-                            <div key={m.id} style={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                              padding: '0.5rem 0.75rem',
-                              background: 'var(--bg-header)', borderRadius: 6, fontSize: '0.9rem',
-                              position: 'relative',
-                            }}>
-                              <span>{m.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({m.elo})</span></span>
-                              <div style={{ position: 'relative' }}>
-                                <button
-                                  onClick={() => setOpenMenuId(openMenuId === m.id ? null : m.id)}
-                                  style={{
-                                    background: 'none', border: 'none', cursor: 'pointer',
-                                    color: 'var(--text-muted)', fontSize: '1.1rem',
-                                    padding: '0 0.25rem', lineHeight: 1, borderRadius: 4,
-                                  }}
-                                >⋮</button>
-                                {openMenuId === m.id && (
-                                  <>
-                                    {/* Backdrop to close on outside click */}
-                                    <div
-                                      style={{ position: 'fixed', inset: 0, zIndex: 10 }}
-                                      onClick={() => setOpenMenuId(null)}
-                                    />
-                                    <div style={{
-                                      position: 'absolute', right: 0, top: '110%',
-                                      background: 'var(--bg-card)',
-                                      border: '1px solid var(--border)',
-                                      borderRadius: 8, zIndex: 11,
-                                      boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                                      minWidth: 120, overflow: 'hidden',
-                                    }}>
-                                      <button
-                                        onClick={() => { setOpenMenuId(null); setEditingMember(m); setEditName(m.name); setEditBio(m.bio); setEditPortrait(m.portrait); }}
-                                        style={{
-                                          width: '100%', padding: '0.6rem 1rem',
-                                          background: 'none', border: 'none',
-                                          textAlign: 'left', cursor: 'pointer',
-                                          fontSize: '0.85rem', color: 'var(--text)',
-                                          fontWeight: 500,
-                                        }}
-                                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-header)')}
-                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-                                      >Edit</button>
-                                      <button
-                                        onClick={() => { setOpenMenuId(null); setConfirmRemove({ id: m.id, name: m.name }); setConfirmNameInput(''); }}
-                                        style={{
-                                          width: '100%', padding: '0.6rem 1rem',
-                                          background: 'none', border: 'none',
-                                          textAlign: 'left', cursor: 'pointer',
-                                          fontSize: '0.85rem', color: 'var(--danger)',
-                                          fontWeight: 500,
-                                        }}
-                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#fee2e2')}
-                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
-                                      >Remove</button>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
+                  {/* Current Members */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <SectionTitle>Current Members</SectionTitle>
+                    {members.length === 0 ? (
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No members yet.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '24rem', overflowY: 'auto' }}>
+                        {[...members].sort((a, b) => a.name.localeCompare(b.name)).map((m) => (
+                          <div key={m.id} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '0.5rem 0.75rem',
+                            background: 'var(--bg-header)', borderRadius: 6, fontSize: '0.9rem',
+                            position: 'relative',
+                          }}>
+                            <span>{m.name} <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>({m.elo})</span></span>
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                onClick={() => setOpenMenuId(openMenuId === m.id ? null : m.id)}
+                                style={{
+                                  background: 'none', border: 'none', cursor: 'pointer',
+                                  color: 'var(--text-muted)', fontSize: '1.1rem',
+                                  padding: '0 0.25rem', lineHeight: 1, borderRadius: 4,
+                                }}
+                              >⋮</button>
+                              {openMenuId === m.id && (
+                                <>
+                                  <div
+                                    style={{ position: 'fixed', inset: 0, zIndex: 10 }}
+                                    onClick={() => setOpenMenuId(null)}
+                                  />
+                                  <div style={{
+                                    position: 'absolute', right: 0, top: '110%',
+                                    background: 'var(--bg-card)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: 8, zIndex: 11,
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                    minWidth: 120, overflow: 'hidden',
+                                  }}>
+                                    <button
+                                      onClick={() => { setOpenMenuId(null); setEditingMember(m); setEditName(m.name); setEditBio(m.bio); setEditPortrait(m.portrait); }}
+                                      style={{
+                                        width: '100%', padding: '0.6rem 1rem',
+                                        background: 'none', border: 'none',
+                                        textAlign: 'left', cursor: 'pointer',
+                                        fontSize: '0.85rem', color: 'var(--text)',
+                                        fontWeight: 500,
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-header)')}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                    >Edit</button>
+                                    <button
+                                      onClick={() => { setOpenMenuId(null); setConfirmRemove({ id: m.id, name: m.name }); setConfirmNameInput(''); }}
+                                      style={{
+                                        width: '100%', padding: '0.6rem 1rem',
+                                        background: 'none', border: 'none',
+                                        textAlign: 'left', cursor: 'pointer',
+                                        fontSize: '0.85rem', color: 'var(--danger)',
+                                        fontWeight: 500,
+                                      }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = '#fee2e2')}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                                    >Remove</button>
+                                  </div>
+                                </>
+                              )}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Record Match */}
@@ -965,6 +995,46 @@ export default function Home() {
                     </Field>
 
                     <button onClick={recordMatch} style={btnPrimary}>Record Match</button>
+                  </div>
+
+                  {/* Inactivity Penalty */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <SectionTitle>Inactivity Penalty</SectionTitle>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      −20 ELO (floor 800) for members with no matches last month.
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={loadInactiveMembers} style={btnPrimary} disabled={inactiveMembersLoading}>
+                        {inactiveMembersLoading ? 'Loading…' : 'Preview'}
+                      </button>
+                      <button
+                        onClick={applyInactivityPenalty}
+                        style={{ ...btnPrimary, background: '#d97706' }}
+                        disabled={inactiveMembers !== null && inactiveMembers.length === 0}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    {inactiveMembers !== null && (
+                      inactiveMembers.length === 0 ? (
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>No inactive members.</p>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: '24rem', overflowY: 'auto' }}>
+                          {inactiveMembers.map((m) => (
+                            <div key={m.id} style={{
+                              display: 'flex', justifyContent: 'space-between',
+                              padding: '0.4rem 0.75rem',
+                              background: 'var(--bg-header)', borderRadius: 6, fontSize: '0.85rem',
+                            }}>
+                              <span>{m.name}</span>
+                              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#d97706' }}>
+                                {m.elo} → {Math.max(800, m.elo - 20)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
 
@@ -1124,34 +1194,39 @@ export default function Home() {
                           const date = new Date(match.played_at).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric',
                           });
+                          const isPenalty = match.type === 'penalty';
                           return (
                             <div key={match.id} style={{ overflowX: 'auto', borderRadius: 7 }}>
                             <div style={{
                               display: 'flex', alignItems: 'center', gap: '0.6rem',
                               padding: '0.4rem 0.6rem',
                               background: 'var(--bg-header)', borderRadius: 7,
-                              flexWrap: 'nowrap', minWidth: '420px',
+                              flexWrap: 'nowrap', minWidth: isPenalty ? 'unset' : '420px',
                             }}>
                                 <div style={{
                                 width: 22, height: 22, borderRadius: 5, flexShrink: 0,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontWeight: 700, fontSize: '0.7rem',
-                                background: match.won ? '#dcfce7' : '#fee2e2',
-                                color: match.won ? '#16a34a' : '#dc2626',
-                              }}>{match.won ? 'W' : 'L'}</div>
+                                background: isPenalty ? '#fef3c7' : (match.won ? '#dcfce7' : '#fee2e2'),
+                                color: isPenalty ? '#d97706' : (match.won ? '#16a34a' : '#dc2626'),
+                              }}>{isPenalty ? 'P' : (match.won ? 'W' : 'L')}</div>
 
                                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0, width: '52px' }}>{date}</span>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                {match.teammates.length > 0 && (
+                                {isPenalty ? (
+                                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flexShrink: 0 }}>Inactivity penalty</span>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                  {(match.teammates?.length ?? 0) > 0 && (
+                                    <div style={{ width: '130px', flexShrink: 0 }}>
+                                      <PlayerRow label="with" names={match.teammates!} portraitMap={portraitMap} />
+                                    </div>
+                                  )}
                                   <div style={{ width: '130px', flexShrink: 0 }}>
-                                    <PlayerRow label="with" names={match.teammates} portraitMap={portraitMap} />
+                                    <PlayerRow label="vs" names={match.opponents!} muted portraitMap={portraitMap} />
                                   </div>
-                                )}
-                                <div style={{ width: '130px', flexShrink: 0 }}>
-                                  <PlayerRow label="vs" names={match.opponents} muted portraitMap={portraitMap} />
                                 </div>
-                              </div>
+                                )}
 
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', flexShrink: 0 }}>
                                 <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{match.elo_before}</span>

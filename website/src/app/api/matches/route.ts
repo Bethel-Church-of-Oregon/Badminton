@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, initDB } from '@/lib/db';
+import { sql, initDB, touchLastUpdated } from '@/lib/db';
 import { applyElo } from '@/lib/elo';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin';
@@ -88,14 +88,7 @@ export async function POST(req: NextRequest) {
     `;
   }
 
-  // Update last_updated only when the stored date differs from today's date
-  const nowISO = new Date().toISOString();
-  const todayDate = nowISO.slice(0, 10); // YYYY-MM-DD
-  await sql`
-    INSERT INTO settings (key, value) VALUES ('last_updated', ${nowISO})
-    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    WHERE LEFT(settings.value, 10) IS DISTINCT FROM ${todayDate}
-  `;
+  await touchLastUpdated();
 
   return NextResponse.json({ message: 'Match recorded successfully' });
 }

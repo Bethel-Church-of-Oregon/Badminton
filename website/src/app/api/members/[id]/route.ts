@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { sql, touchLastUpdated } from '@/lib/db';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin';
 
@@ -29,6 +29,7 @@ export async function PATCH(
   }
 
   await Promise.all(updates);
+  await touchLastUpdated();
   return NextResponse.json({ message: 'Updated' });
 }
 
