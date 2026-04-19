@@ -12,6 +12,7 @@ interface Member {
   bio: string;
   portrait: string;
   rank: number;
+  last_played: string | null;
 }
 
 interface Announcement {
@@ -184,7 +185,7 @@ export default function Home() {
   const [picIndex, setPicIndex] = useState(0);
   const [showPics, setShowPics] = useState(false);
   const touchStartX = useRef<number | null>(null);
-  const [sortCol, setSortCol] = useState<'rank' | 'name' | 'elo' | 'winrate' | 'games' | 'bio'>('rank');
+  const [sortCol, setSortCol] = useState<'rank' | 'name' | 'elo' | 'winrate' | 'games' | 'bio' | 'last_played'>('rank');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -434,6 +435,11 @@ export default function Home() {
     if (sortCol === 'winrate') cmp = (a.games_played ? a.wins / a.games_played : 0) - (b.games_played ? b.wins / b.games_played : 0);
     if (sortCol === 'games')   cmp = a.games_played - b.games_played;
     if (sortCol === 'bio')     cmp = a.bio.localeCompare(b.bio);
+    if (sortCol === 'last_played') {
+      const aT = a.last_played ? new Date(a.last_played).getTime() : 0;
+      const bT = b.last_played ? new Date(b.last_played).getTime() : 0;
+      cmp = aT - bT;
+    }
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
@@ -624,16 +630,18 @@ export default function Home() {
                   <col style={{ width: '10%' }} />
                   <col style={{ width: '10%' }} />
                   <col />{/* About — takes remaining space */}
+                  <col style={{ width: '12%' }} />{/* Last Played */}
                 </colgroup>
                 <thead>
                   <tr style={{ background: 'var(--bg-header)' }}>
                     {([
-                      { col: 'rank',    label: 'Rank',            align: 'center' },
-                      { col: 'name',    label: 'Player',          align: 'left'   },
-                      { col: 'elo',     label: 'ELO',             align: 'center' },
-                      { col: 'winrate', label: 'Win Rate',        align: 'center' },
-                      { col: 'games',   label: 'Games',           align: 'center' },
-                      { col: 'bio',     label: 'To My Opponents', align: 'center' },
+                      { col: 'rank',        label: 'Rank',            align: 'center' },
+                      { col: 'name',        label: 'Player',          align: 'left'   },
+                      { col: 'elo',         label: 'ELO',             align: 'center' },
+                      { col: 'winrate',     label: 'Win Rate',        align: 'center' },
+                      { col: 'games',       label: 'Games',           align: 'center' },
+                      { col: 'bio',         label: 'To My Opponents', align: 'center' },
+                      { col: 'last_played', label: 'Last Played',     align: 'center' },
                     ] as const).map(({ col, label, align }) => (
                       <th key={col} style={{ ...thStyle(align), cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort(col)}>
                         {label}{sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -643,9 +651,9 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
                   ) : members.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                       No members yet. Add some via the admin panel.
                     </td></tr>
                   ) : displayMembers.map((m, idx) => {
@@ -704,6 +712,19 @@ export default function Home() {
                           <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                             {m.bio || '—'}
                           </div>
+                        </td>
+
+                        <td style={{
+                          padding: '0.45rem 0.75rem', textAlign: 'center',
+                          fontFamily: 'JetBrains Mono, monospace', fontSize: '0.78rem',
+                          color: 'var(--text-muted)',
+                        }}>
+                          {m.last_played
+                            ? (() => {
+                                const d = new Date(m.last_played);
+                                return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;
+                              })()
+                            : '—'}
                         </td>
                       </tr>
                     );
