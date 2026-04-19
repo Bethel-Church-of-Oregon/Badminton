@@ -6,9 +6,13 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin';
 export async function GET() {
   await initDB();
   const { rows } = await sql`
-    SELECT id, name, elo, wins, losses, games_played, bio, portrait
-    FROM members
-    ORDER BY elo DESC
+    SELECT m.id, m.name, m.elo, m.wins, m.losses, m.games_played, m.bio, m.portrait,
+           MAX(ma.played_at) AS last_played
+    FROM members m
+    LEFT JOIN match_players mp ON mp.player_id = m.id
+    LEFT JOIN matches ma ON ma.id = mp.match_id
+    GROUP BY m.id, m.name, m.elo, m.wins, m.losses, m.games_played, m.bio, m.portrait
+    ORDER BY m.elo DESC
   `;
   let rank = 1;
   const ranked = rows.map((m, i) => {
