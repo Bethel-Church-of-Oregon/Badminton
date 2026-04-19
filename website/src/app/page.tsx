@@ -1204,8 +1204,11 @@ export default function Home() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                   <Avatar name={m.name} portrait={m.portrait} size={72} />
                   <div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{m.name}</div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Rank #{m.rank}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{m.name}</div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Rank #{m.rank}</div>
+                    </div>
+                    {m.bio && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>"{m.bio}"</div>}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
                       <div style={{
                         display: 'inline-flex', alignItems: 'center',
