@@ -8,6 +8,7 @@ from collections import defaultdict
 # HARD — teammate / pair legality (_valid_doubles_pair, _allowed_teammates):
 #   - No A+A on the same team (A players meet only as opponents across the net).
 #   - No A+B or A+C on the same team.
+#   - No B+B on the same team.
 #   - No E+E on the same team.
 #   - No F+F (two (f) players cannot be partners — mixed doubles only).
 #   - No repeat partners: pairs in played_together cannot team again.
@@ -67,12 +68,14 @@ def is_female(name):
 def _allowed_teammates(p1, p2, tiers):
     """
     A조끼리는 같은 팀 불가 → A는 A를 파트너로만 두지 않고, 네트 건너 상대로만 만남.
-    a는 b·c와 같은 팀 불가.
+    a는 b·c와 같은 팀 불가. b끼리 같은 팀 불가.
     """
     t1, t2 = tiers[p1], tiers[p2]
     if t1 == "a" and t2 == "a":
         return False
     if "a" in (t1, t2) and ("b" in (t1, t2) or "c" in (t1, t2)):
+        return False
+    if t1 == "b" and t2 == "b":
         return False
     return True
 
@@ -192,19 +195,28 @@ def _cross_net_max_repeat(team_left, team_right, opponent_counts):
     return m
 
 
+MAX_TEAM_WEIGHT_DIFF = 2  # hard cap: |team_left_strength - team_right_strength| <= this
+
+
 def _best_order_from_teams(teams, opponent_counts, tiers):
     """
     teams: 길이 4의 (p1,p2) 튜플 리스트.
     4팀을 2경기로 나누는 3가지 중에서 (1) 과거 상대 횟수 합 최소 (2) 최대 반복 상대 최소
     (3) 코트별 팀 가중합 차 최소 (4) A끼리 네트 맞대결(A–A 엣지) 최대화.
-    반환: (order, opponent_score, max_repeat, matchup_balance)
+    팀 가중합 차가 MAX_TEAM_WEIGHT_DIFF 초과인 코트 배치는 제외 (하드 제약).
+    반환: (order, opponent_score, max_repeat, matchup_balance) 또는 None
     """
     best_order = None
-    best_key = None  # (oscore, max_repeat, balance)
+    best_key = None
     # 3가지 대진: (0,1)(2,3), (0,2)(1,3), (0,3)(1,2)
     for (i, j), (k, el) in (((0, 1), (2, 3)), ((0, 2), (1, 3)), ((0, 3), (1, 2))):
         ta, tb = teams[i], teams[j]
         tc, td = teams[k], teams[el]
+        sa, sb = team_strength(ta, tiers), team_strength(tb, tiers)
+        sc, sd = team_strength(tc, tiers), team_strength(td, tiers)
+        if abs(sa - sb) > MAX_TEAM_WEIGHT_DIFF or abs(sc - sd) > MAX_TEAM_WEIGHT_DIFF:
+            continue
+        balance = abs(sa - sb) + abs(sc - sd)
         oscore = _cross_net_opponent_score(ta, tb, opponent_counts) + _cross_net_opponent_score(
             tc, td, opponent_counts
         )
@@ -212,24 +224,14 @@ def _best_order_from_teams(teams, opponent_counts, tiers):
             _cross_net_max_repeat(ta, tb, opponent_counts),
             _cross_net_max_repeat(tc, td, opponent_counts),
         )
-        sa, sb = team_strength(ta, tiers), team_strength(tb, tiers)
-        sc, sd = team_strength(tc, tiers), team_strength(td, tiers)
-        balance = abs(sa - sb) + abs(sc - sd)
-        order = [
-            ta[0],
-            ta[1],
-            tb[0],
-            tb[1],
-            tc[0],
-            tc[1],
-            td[0],
-            td[1],
-        ]
+        order = [ta[0], ta[1], tb[0], tb[1], tc[0], tc[1], td[0], td[1]]
         a_net = _tier_a_cross_net_edge_count(order, tiers)
         key = (oscore, max_rep, balance, -a_net)
         if best_key is None or key < best_key or (key == best_key and random.random() < 0.5):
             best_key = key
             best_order = order
+    if best_order is None:
+        return None
     return best_order, best_key[0], best_key[1], best_key[2]
 
 
@@ -370,24 +372,16 @@ def balanced_teams_and_matchups(
         teams = _build_four_teams(players, tiers, played_together)
         if not teams:
             continue
-        order, oscore, max_rep, mbal = _best_order_from_teams(teams, opponent_counts, tiers)
+        result = _best_order_from_teams(teams, opponent_counts, tiers)
+        if result is None:
+            continue
+        order, oscore, max_rep, mbal = result
         spread = _skill_spread(teams, tiers)
         a_net = _tier_a_cross_net_edge_count(order, tiers)
         key = (oscore, max_rep, mbal, spread, -a_net)
         if best_key is None or key < best_key or (key == best_key and random.random() < 0.5):
             best_key = key
             best_order = order
-
-    if best_order is None:
-        for _ in range(400):
-            players = list(pool)
-            random.shuffle(players)
-            teams = _build_four_teams(players, tiers, played_together)
-            if teams:
-                best_order, _, _, _ = _best_order_from_teams(teams, opponent_counts, tiers)
-                break
-        if best_order is None:
-            return None
 
     return best_order
 
@@ -404,11 +398,11 @@ def generate_tournament():
     # ---------------------------------------------------------
     # 1. 플레이어 명단 (2글자 한글 이름 직접 수정)
     # ---------------------------------------------------------
-    a = ["대한(m)", "창영(m)"]
-    b = ["명훈(m)", "지성(m)", "건우(m)"]
-    c = ["경록(m)", "소영(f)", "은혜(f)", "용재(m)"]
-    d = ["수빈(f)", "은사(f)", "티미(m)", "우진(m)"]
-    e = ["효림(f)", "광희(m)", "민욱(m)"]
+    a = ["대한(m)", "창영(m)", "한준(m)"]
+    b = ["지성(m)", "정훈(m)", "시영(m)"]
+    c = ["건우(m)", "건수(m)", "우진(m)"]
+    d = ["수빈(f)", "은혜(f)", "경록(m)", "민오(m)", "혜영(f)", "강형(m)"]
+    e = ["재욱(m)"]
     # ---------------------------------------------------------
 
     all_players = a + b + c + d + e
@@ -423,7 +417,7 @@ def generate_tournament():
     sub_line = "-" * 90
 
     print(line)
-    print(f"{'3월 배드민턴 대회 : 8라운드 전체 대진표':^84}")
+    print(f"{'4월 배드민턴 대회 : 8라운드 전체 대진표':^84}")
     print(line)
     # 헤더 정렬 (수동 간격 조정)
     print(f" 라운드 |               코트 1               |               코트 2")
