@@ -4,9 +4,60 @@ and parsing its output. Does NOT modify the original script.
 """
 import sys
 import re
+import json
+import urllib.request
+import ssl
 from io import StringIO
 from pathlib import Path
 import importlib.util
+
+# ---------------------------------------------------------------------------
+# Portrait configuration
+# ---------------------------------------------------------------------------
+# The script will try each URL in order and use the first that responds.
+# Set WEBSITE_URLS to your deployed site or leave as-is for local dev.
+WEBSITE_URLS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+
+# Fallback portrait map: display_name -> filename (e.g. "0042_Normal.png").
+# Used when the API is unreachable. Leave blank to show initials-only avatars.
+PLAYER_PORTRAITS: dict[str, str] = {}
+
+# Avatar colors — same order as the website's AVATAR_COLORS constant.
+_AVATAR_COLORS = [
+    "#0d9488", "#6366f1", "#ec4899", "#f59e0b",
+    "#10b981", "#3b82f6", "#ef4444", "#8b5cf6",
+]
+
+
+def _avatar_color(name: str) -> str:
+    h = 0
+    for c in name:
+        h = (h * 31 + ord(c)) & 0xFFFF
+    return _AVATAR_COLORS[h % len(_AVATAR_COLORS)]
+
+
+def fetch_portraits() -> tuple[dict[str, str], str]:
+    """
+    Try each WEBSITE_URL and return (name->portrait mapping, portrait_base_url).
+    Returns (PLAYER_PORTRAITS, "") on failure so the caller still has a fallback.
+    """
+    ctx = ssl._create_unverified_context()
+    for base in WEBSITE_URLS:
+        try:
+            req = urllib.request.urlopen(f"{base}/api/members", timeout=4, context=ctx)
+            data = json.loads(req.read())
+            portrait_map = {m["name"]: m.get("portrait", "") for m in data if m.get("name")}
+            # Merge with manual overrides (PLAYER_PORTRAITS wins on conflict)
+            merged = {**portrait_map, **PLAYER_PORTRAITS}
+            print(f"[portraits] Fetched {len(portrait_map)} portraits from {base}")
+            return merged, f"{base}/assets/portraits"
+        except Exception as e:
+            print(f"[portraits] {base} unavailable ({e})")
+    print("[portraits] Using fallback portrait map (initials only for missing players).")
+    return PLAYER_PORTRAITS, ""
 
 
 def capture_tournament_output():
@@ -65,7 +116,8 @@ def parse_schedule(output: str):
     return matches
 
 
-def generate_html(matches, title="3월 배드민턴 대회 : 8라운드 전체 대진표"):
+def generate_html(matches, title="4월 배드민턴 대회 : 8라운드 전체 대진표",
+                  portraits: dict | None = None, portrait_base: str = ""):
     """Generate a beautiful HTML match schedule."""
     return f'''<!DOCTYPE html>
 <html lang="ko">
@@ -223,17 +275,52 @@ def generate_html(matches, title="3월 배드민턴 대회 : 8라운드 전체 �
         .team {{
             display: flex;
             align-items: center;
-            gap: 0.35rem;
+            gap: 0.6rem;
             font-weight: 500;
-            font-size: 1.05rem;
         }}
 
-        .team span {{
+        .player {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             background: var(--bg-header);
-            color: var(--text);
-            padding: 0.4rem 0.75rem;
+            padding: 0.35rem 0.65rem 0.35rem 0.4rem;
             border-radius: 6px;
             border: 1px solid var(--border);
+        }}
+
+        .player-name {{
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text);
+            white-space: nowrap;
+        }}
+
+        .avatar {{
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+            position: relative;
+        }}
+
+        .avatar img {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }}
+
+        .avatar-fallback {{
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.7rem;
         }}
 
         .vs {{
@@ -248,21 +335,47 @@ def generate_html(matches, title="3월 배드민턴 대회 : 8라운드 전체 �
 <body>
     <div class="container">
         <header>
-            <div class="badge">March Tournament</div>
+            <div class="badge">April Tournament</div>
             <h1>{title}</h1>
         </header>
 
         <div class="round-grid">
-''' + '\n'.join(_render_round(m) for m in matches) + '''
+''' + '\n'.join(_render_round(m, portraits or {}, portrait_base) for m in matches) + '''
         </div>
     </div>
 </body>
 </html>'''
 
 
-def _render_round(m):
+def _avatar_html(name: str, portrait_filename: str, portrait_base: str) -> str:
+    color = _avatar_color(name)
+    initial = name[0] if name else "?"
+    if portrait_filename and portrait_filename != "missing-portrait.png" and portrait_base:
+        src = f"{portrait_base}/{portrait_filename}"
+        return (
+            f'<div class="avatar">'
+            f'<img src="{src}" alt="{name}" '
+            f'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+            f'<div class="avatar-fallback" style="display:none;background:{color}">{initial}</div>'
+            f'</div>'
+        )
+    return (
+        f'<div class="avatar">'
+        f'<div class="avatar-fallback" style="background:{color}">{initial}</div>'
+        f'</div>'
+    )
+
+
+def _render_round(m, portraits: dict, portrait_base: str):
     def team_html(team):
-        return ' '.join(f'<span>{p}</span>' for p in team)
+        parts = []
+        for p in team:
+            portrait_file = portraits.get(p, "")
+            av = _avatar_html(p, portrait_file, portrait_base)
+            parts.append(
+                f'<div class="player">{av}<span class="player-name">{p}</span></div>'
+            )
+        return ' '.join(parts)
 
     c1 = m['court1']
     c2 = m['court2']
@@ -296,12 +409,13 @@ def _render_round(m):
 
 
 if __name__ == "__main__":
+    portraits, portrait_base = fetch_portraits()
     output = capture_tournament_output()
     matches = parse_schedule(output)
     if not matches:
         print("Could not parse schedule. Raw output:", output[:500])
         sys.exit(1)
-    html = generate_html(matches)
+    html = generate_html(matches, portraits=portraits, portrait_base=portrait_base)
     out_path = "badminton-schedule.html"
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
