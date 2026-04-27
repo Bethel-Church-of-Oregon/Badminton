@@ -23,7 +23,7 @@ export async function GET(
     JOIN match_players mp2 ON m.id = mp2.match_id AND mp2.player_id != ${id}
     JOIN members mem        ON mp2.player_id = mem.id
     ORDER BY m.played_at DESC
-    LIMIT 50
+    LIMIT 300
   `;
 
   const matchMap = new Map<string, {
