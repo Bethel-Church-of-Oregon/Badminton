@@ -1376,22 +1376,30 @@ export default function Home() {
                           const W = 340, H = 120, xO = 44, yO = 8;
                           const sx = (i: number) => xO + (pts.length < 2 ? W / 2 : (i / (pts.length - 1)) * W);
                           const sy = (e: number) => yO + H - ((e - minE) / (maxE - minE)) * H;
-                          const polyPts = pts.map((p, i) => `${sx(i)},${sy(p.elo)}`).join(' ');
-                          const gridElos = [Math.round(minE + 15), Math.round((minE + maxE) / 2), Math.round(maxE - 15)];
+                          const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${sx(i).toFixed(1)} ${sy(p.elo).toFixed(1)}`).join(' ');
+                          const gridElos = [Math.round(minE + 20), Math.round((minE + maxE) / 2), Math.round(maxE - 20)];
+                          const vW = xO + W + 12, vH = yO + H + 20;
                           return (
-                            <svg viewBox={`0 0 ${xO + W + 8} ${yO + H + 16}`} style={{ width: '100%', display: 'block' }}>
+                            <svg viewBox={`0 0 ${vW} ${vH}`} style={{ width: '100%', display: 'block' }}>
+                              <rect x={xO} y={yO} width={W} height={H} rx={8} fill="rgba(99,102,241,0.05)" />
                               {gridElos.map(e => (
                                 <g key={e}>
-                                  <line x1={xO} x2={xO + W} y1={sy(e)} y2={sy(e)} stroke="var(--border)" strokeWidth={1} />
-                                  <text x={xO - 4} y={sy(e) + 4} textAnchor="end" fontSize={9} fill="var(--text-muted)">{e}</text>
+                                  <line x1={xO} x2={xO + W} y1={sy(e)} y2={sy(e)} stroke="rgba(148,163,184,0.18)" strokeWidth={1} strokeDasharray="3 5" />
+                                  <text x={xO - 5} y={sy(e) + 4} textAnchor="end" fontSize={9} fill="rgba(148,163,184,0.75)" fontFamily="JetBrains Mono, monospace">{e}</text>
                                 </g>
                               ))}
-                              <polyline points={polyPts} fill="none" stroke="#6366f1" strokeWidth={2} strokeLinejoin="round" />
-                              {pts.map((p, i) => i === 0 ? null : (
-                                <circle key={i} cx={sx(i)} cy={sy(p.elo)} r={3.5}
-                                  fill={p.isPenalty ? '#d97706' : (p.won ? '#16a34a' : '#dc2626')}
-                                  stroke="var(--bg-card)" strokeWidth={1.5} />
-                              ))}
+                              <path d={linePath} fill="none" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                              {pts.map((p, i) => {
+                                if (i === 0) return null;
+                                const cx = sx(i), cy = sy(p.elo);
+                                const col = p.isPenalty ? '#fbbf24' : (p.won ? '#4ade80' : '#f87171');
+                                return (
+                                  <g key={i}>
+                                    <circle cx={cx} cy={cy} r={5} fill={col} opacity={0.18} />
+                                    <circle cx={cx} cy={cy} r={3} fill={col} stroke="rgba(255,255,255,0.85)" strokeWidth={1.2} />
+                                  </g>
+                                );
+                              })}
                             </svg>
                           );
                         })() : (
