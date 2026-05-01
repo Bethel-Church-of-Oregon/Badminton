@@ -217,10 +217,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadMembers();
-    loadAnnouncements();
-    loadSettings();
-    const interval = setInterval(() => { loadMembers(); loadAnnouncements(); }, 30_000);
+    Promise.all([loadMembers(), loadAnnouncements(), loadSettings()]);
+    const interval = setInterval(() => { Promise.all([loadMembers(), loadAnnouncements()]); }, 30_000);
     return () => clearInterval(interval);
   }, [loadMembers, loadAnnouncements, loadSettings]);
 
