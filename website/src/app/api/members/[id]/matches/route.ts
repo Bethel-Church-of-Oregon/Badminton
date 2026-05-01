@@ -7,24 +7,33 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const { rows } = await sql`
-    SELECT
-      m.id          AS match_id,
-      m.played_at,
-      m.winner,
-      mp.team       AS my_team,
-      mp.elo_before,
-      mp.elo_after,
-      mp2.player_id AS other_id,
-      mp2.team      AS other_team,
-      mem.name      AS other_name
-    FROM matches m
-    JOIN match_players mp  ON m.id = mp.match_id  AND mp.player_id  = ${id}
-    JOIN match_players mp2 ON m.id = mp2.match_id AND mp2.player_id != ${id}
-    JOIN members mem        ON mp2.player_id = mem.id
-    ORDER BY m.played_at DESC
-    LIMIT 300
-  `;
+  const [{ rows }, { rows: penalties }] = await Promise.all([
+    sql`
+      SELECT
+        m.id          AS match_id,
+        m.played_at,
+        m.winner,
+        mp.team       AS my_team,
+        mp.elo_before,
+        mp.elo_after,
+        mp2.player_id AS other_id,
+        mp2.team      AS other_team,
+        mem.name      AS other_name
+      FROM matches m
+      JOIN match_players mp  ON m.id = mp.match_id  AND mp.player_id  = ${id}
+      JOIN match_players mp2 ON m.id = mp2.match_id AND mp2.player_id != ${id}
+      JOIN members mem        ON mp2.player_id = mem.id
+      ORDER BY m.played_at DESC
+      LIMIT 300
+    `,
+    sql`
+      SELECT id, applied_at, elo_before, elo_after
+      FROM inactivity_penalties
+      WHERE player_id = ${id}
+      ORDER BY applied_at DESC
+      LIMIT 24
+    `,
+  ]);
 
   const matchMap = new Map<string, {
     id: string;
@@ -59,14 +68,6 @@ export async function GET(
       match.opponents.push(row.other_name);
     }
   }
-
-  const { rows: penalties } = await sql`
-    SELECT id, applied_at, elo_before, elo_after
-    FROM inactivity_penalties
-    WHERE player_id = ${id}
-    ORDER BY applied_at DESC
-    LIMIT 24
-  `;
 
   const penaltyEntries = penalties.map((p) => ({
     id: p.id,

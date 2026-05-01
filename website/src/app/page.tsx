@@ -136,6 +136,7 @@ export default function Home() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [matchHistory, setMatchHistory] = useState<MatchEntry[]>([]);
   const [matchHistoryLoading, setMatchHistoryLoading] = useState(false);
+  const [selectedHistoryMonth, setSelectedHistoryMonth] = useState<string | null>(null);
 
   // Admin state
   const [adminOpen, setAdminOpen] = useState(false);
@@ -216,10 +217,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadMembers();
-    loadAnnouncements();
-    loadSettings();
-    const interval = setInterval(() => { loadMembers(); loadAnnouncements(); }, 30_000);
+    Promise.all([loadMembers(), loadAnnouncements(), loadSettings()]);
+    const interval = setInterval(() => { Promise.all([loadMembers(), loadAnnouncements()]); }, 30_000);
     return () => clearInterval(interval);
   }, [loadMembers, loadAnnouncements, loadSettings]);
 
@@ -239,11 +238,16 @@ export default function Home() {
 
   // Fetch match history when a member is selected
   useEffect(() => {
-    if (!selectedMember) { setMatchHistory([]); return; }
+    if (!selectedMember) { setMatchHistory([]); setSelectedHistoryMonth(null); return; }
     setMatchHistoryLoading(true);
+    setSelectedHistoryMonth(null);
     fetch(`/api/members/${selectedMember.id}/matches`)
       .then((r) => r.json())
-      .then((data) => { setMatchHistory(data); setMatchHistoryLoading(false); })
+      .then((data) => {
+        setMatchHistory(data);
+        setMatchHistoryLoading(false);
+        if (data.length > 0) setSelectedHistoryMonth(data[0].played_at.slice(0, 7));
+      })
       .catch(() => setMatchHistoryLoading(false));
   }, [selectedMember?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1331,15 +1335,80 @@ export default function Home() {
                     <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading…</div>
                   ) : matchHistory.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No matches recorded yet.</div>
-                  ) : (
+                  ) : (() => {
+                    const months = Array.from(new Set(matchHistory.map(m => m.played_at.slice(0, 7)))).sort((a, b) => b.localeCompare(a));
+                    const filteredHistory = (selectedHistoryMonth && selectedHistoryMonth !== 'graph')
+                      ? matchHistory.filter(m => m.played_at.slice(0, 7) === selectedHistoryMonth)
+                      : matchHistory;
+                    const tabs: string[] = ['graph', ...months];
+                    return (
+                      <>
+                        <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                          {tabs.map((tab) => {
+                            const isGraph = tab === 'graph';
+                            const label = isGraph ? 'Graph' : new Date(tab + '-02').toLocaleDateString('en-US', { month: 'short' });
+                            const count = isGraph ? null : matchHistory.filter(x => x.played_at.slice(0, 7) === tab).length;
+                            const active = selectedHistoryMonth === tab;
+                            return (
+                              <button key={tab} onClick={() => setSelectedHistoryMonth(tab)}
+                                style={{
+                                  padding: '0.2rem 0.6rem', borderRadius: 99, border: '1px solid var(--border)',
+                                  background: active ? 'var(--accent, #6366f1)' : 'var(--bg-header)',
+                                  color: active ? '#fff' : 'var(--text-muted)',
+                                  fontSize: '0.72rem', fontWeight: active ? 700 : 400,
+                                  cursor: 'pointer', transition: 'background 0.15s',
+                                }}>{label}{count !== null && <span style={{ opacity: 0.7 }}> ({count})</span>}</button>
+                            );
+                          })}
+                        </div>
+
+                        {selectedHistoryMonth === 'graph' ? (() => {
+                          const chrono = [...matchHistory].reverse();
+                          const pts = [
+                            { elo: chrono[0].elo_before, won: null as boolean | null, isPenalty: false },
+                            ...chrono.map(m => ({ elo: m.elo_before + m.elo_change, won: m.won, isPenalty: m.type === 'penalty' })),
+                          ];
+                          const elos = pts.map(p => p.elo);
+                          const minE = Math.min(...elos) - 15;
+                          const maxE = Math.max(...elos) + 15;
+                          const W = 340, H = 120, xO = 44, yO = 8;
+                          const sx = (i: number) => xO + (pts.length < 2 ? W / 2 : (i / (pts.length - 1)) * W);
+                          const sy = (e: number) => yO + H - ((e - minE) / (maxE - minE)) * H;
+                          const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${sx(i).toFixed(1)} ${sy(p.elo).toFixed(1)}`).join(' ');
+                          const gridElos = [Math.round(minE + 20), Math.round((minE + maxE) / 2), Math.round(maxE - 20)];
+                          const vW = xO + W + 12, vH = yO + H + 20;
+                          return (
+                            <svg viewBox={`0 0 ${vW} ${vH}`} style={{ width: '100%', display: 'block' }}>
+                              <rect x={xO} y={yO} width={W} height={H} rx={8} fill="rgba(99,102,241,0.05)" />
+                              {gridElos.map(e => (
+                                <g key={e}>
+                                  <line x1={xO} x2={xO + W} y1={sy(e)} y2={sy(e)} stroke="rgba(148,163,184,0.18)" strokeWidth={1} strokeDasharray="3 5" />
+                                  <text x={xO - 5} y={sy(e) + 4} textAnchor="end" fontSize={9} fill="rgba(148,163,184,0.75)" fontFamily="JetBrains Mono, monospace">{e}</text>
+                                </g>
+                              ))}
+                              <path d={linePath} fill="none" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                              {pts.map((p, i) => {
+                                if (i === 0) return null;
+                                const cx = sx(i), cy = sy(p.elo);
+                                const col = p.isPenalty ? '#fbbf24' : (p.won ? '#4ade80' : '#f87171');
+                                return (
+                                  <g key={i}>
+                                    <circle cx={cx} cy={cy} r={5} fill={col} opacity={0.18} />
+                                    <circle cx={cx} cy={cy} r={3} fill={col} stroke="rgba(255,255,255,0.85)" strokeWidth={1.2} />
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          );
+                        })() : (
                       <div style={{ overflowX: 'auto' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: '420px' }}>
-                        {matchHistory.map((match, idx) => {
+                        {filteredHistory.map((match, idx) => {
                           const eloSign = match.elo_change >= 0 ? '+' : '';
                           const date = new Date(match.played_at).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric',
                           });
-                          const prevDate = idx > 0 ? new Date(matchHistory[idx - 1].played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+                          const prevDate = idx > 0 ? new Date(filteredHistory[idx - 1].played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
                           const isNewDate = prevDate !== null && date !== prevDate;
                           const isPenalty = match.type === 'penalty';
                           return (
@@ -1389,7 +1458,10 @@ export default function Home() {
                         })}
                         </div>
                       </div>
-                  )}
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

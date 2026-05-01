@@ -69,6 +69,9 @@ export async function initDB() {
       elo_after  INTEGER NOT NULL
     )
   `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_mp_player_id ON match_players(player_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_mp_match_id  ON match_players(match_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_ip_player_id ON inactivity_penalties(player_id)`;
   initialized = true;
 }
 
