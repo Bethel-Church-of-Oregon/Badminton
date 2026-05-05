@@ -1428,18 +1428,18 @@ export default function Home() {
                                 color: isPenalty ? '#d97706' : (match.won ? '#16a34a' : '#dc2626'),
                               }}>{isPenalty ? 'P' : (match.won ? 'W' : 'L')}</div>
 
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0, width: '52px' }}>{date}</span>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flexShrink: 0, width: '42px' }}>{date}</span>
 
                                 {isPenalty ? (
                                   <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flexShrink: 0 }}>Inactivity penalty</span>
                                 ) : (
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                   {(match.teammates?.length ?? 0) > 0 && (
-                                    <div style={{ minWidth: '130px', flexShrink: 0 }}>
+                                    <div style={{ width: '100px', flexShrink: 0 }}>
                                       <PlayerRow label="with" names={match.teammates!} portraitMap={portraitMap} />
                                     </div>
                                   )}
-                                  <div style={{ minWidth: '130px', flexShrink: 0 }}>
+                                  <div style={{ width: '160px', flexShrink: 0 }}>
                                     <PlayerRow label="vs" names={match.opponents!} muted portraitMap={portraitMap} />
                                   </div>
                                 </div>
@@ -1660,13 +1660,13 @@ function PlayerRow({ label, names, muted, portraitMap }: { label: string; names:
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'nowrap' }}>
       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', flexShrink: 0, lineHeight: 1 }}>{label}</span>
       {names.map((name) => (
-        <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0 }}>
+        <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0, width: '60px' }}>
           <Avatar name={name} portrait={portraitMap?.[name]} size={20} />
           <span style={{
             fontSize: '0.82rem', fontWeight: muted ? 400 : 500,
             color: muted ? 'var(--text-muted)' : 'var(--text)',
             whiteSpace: 'nowrap',
-          }}>{name.slice(0, 2)}</span>
+          }}>{name}</span>
         </div>
       ))}
     </div>
