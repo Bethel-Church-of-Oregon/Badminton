@@ -31,18 +31,7 @@ PLAYER_PORTRAITS: dict[str, str] = {}
 # Keep in sync with the a/b/c/d/e lists in generate_tournament().
 SKILL = {"a": 5, "b": 4, "c": 3, "d": 2, "e": 1}
 
-PLAYER_TIERS: dict[str, str] = {
-    # a (skill 5)
-    "대한": "a", "창영": "a",
-    # b (skill 4)
-    "한준": "b", "지성": "b", "정훈": "b", "시영": "b",
-    # c (skill 3)
-    "건우": "c", "건수": "c", "우진": "c",
-    # d (skill 2)
-    "수빈": "d", "은혜": "d", "경록": "d", "민오": "d", "혜영": "d", "강형": "d",
-    # e (skill 1)
-    "재욱": "e",
-}
+PLAYER_TIERS: dict[str, str] = {}  # populated at runtime from badminton-match.py
 
 _TIER_COLORS = {
     "a": ("#7c3aed", "#ede9fe"),  # purple
@@ -88,18 +77,46 @@ def fetch_portraits() -> tuple[dict[str, str], str]:
 
 
 def capture_tournament_output():
-    """Run the tournament script and capture its printed output."""
+    """Run the tournament script, retrying until all 8 rounds generate successfully."""
     script_path = Path(__file__).parent / "badminton-match.py"
-    spec = importlib.util.spec_from_file_location("badminton_match", script_path)
-    module = importlib.util.module_from_spec(spec)
-    old_stdout = sys.stdout
-    sys.stdout = StringIO()
-    try:
+
+    output = ""
+    captured: dict[str, str] = {}
+
+    for attempt in range(50):
+        spec = importlib.util.spec_from_file_location("badminton_match", script_path)
+        module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        module.generate_tournament()
-        return sys.stdout.getvalue()
-    finally:
-        sys.stdout = old_stdout
+
+        captured = {}
+        original = module.tier_map_from_lists
+
+        def _capturing(a, b, c, d, e):
+            result = original(a, b, c, d, e)
+            captured.update(result)
+            return result
+
+        module.tier_map_from_lists = _capturing
+
+        old_stdout = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            module.generate_tournament()
+            output = sys.stdout.getvalue()
+        finally:
+            sys.stdout = old_stdout
+
+        round_count = sum(1 for line in output.splitlines() if re.match(r'\s*\d+\s*\|', line))
+        if round_count >= 8:
+            break
+        print(f"[retry {attempt + 1}] Only {round_count} rounds generated — retrying…")
+
+    # Strip gender markers so display names match the schedule output
+    display_tiers = {
+        name.replace("(m)", "").replace("(f)", "").strip(): tier
+        for name, tier in captured.items()
+    }
+    return output, display_tiers
 
 
 def parse_schedule(output: str):
@@ -143,7 +160,7 @@ def parse_schedule(output: str):
     return matches
 
 
-def generate_html(matches, title="4월 배드민턴 대회 : 8라운드 전체 대진표",
+def generate_html(matches, title="5월 배드민턴 대회 : 8라운드 전체 대진표",
                   portraits: dict | None = None, portrait_base: str = ""):
     """Generate a beautiful HTML match schedule."""
     return f'''<!DOCTYPE html>
@@ -595,7 +612,8 @@ def generate_debug_html(matches, title="4월 배드민턴 대회 : 디버그 대
 
 if __name__ == "__main__":
     portraits, portrait_base = fetch_portraits()
-    output = capture_tournament_output()
+    output, player_tiers = capture_tournament_output()
+    PLAYER_TIERS.update(player_tiers)
     matches = parse_schedule(output)
     if not matches:
         print("Could not parse schedule. Raw output:", output[:500])
