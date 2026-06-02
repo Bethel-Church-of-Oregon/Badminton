@@ -52,7 +52,7 @@ export async function initDB() {
   `;
   await sql`
     INSERT INTO settings (key, value)
-    VALUES ('header_text', '벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (4월 19일)은 본당에서 (오후 5시)에 모이겠습니다!!!')
+    VALUES ('header_text', '벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (TBD)은 본당에서 (TBD)에 모이겠습니다!!!')
     ON CONFLICT (key) DO NOTHING
   `;
   await sql`
