@@ -129,7 +129,7 @@ export default function Home() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [newAnnouncementTitle, setNewAnnouncementTitle] = useState('');
   const [newAnnouncementBody, setNewAnnouncementBody] = useState('');
-  const [headerText, setHeaderText] = useState('벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (5월 3일)은 본당에서 (오후 5시)에 모이겠습니다!!!');
+  const [headerText, setHeaderText] = useState('벧엘 배드민턴 클럽 홈페이지에 오신걸 환영합니다. (TBD)은 본당에서 (TBD)에 모이겠습니다!!!');
   const [editHeaderText, setEditHeaderText] = useState('');
   const [lastUpdated, setLastUpdated] = useState('');
 
@@ -805,7 +805,7 @@ export default function Home() {
                       Men's Champions
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                      {/* May 2026 */}
+                      {/* June 2026 */}
                       <div style={{
                         background: 'var(--bg-card)', border: '1px solid var(--border)',
                         borderRadius: 12, padding: '1.25rem 1.5rem',
@@ -814,9 +814,27 @@ export default function Home() {
                         width: 180,
                       }}>
                         <Avatar name="?" portrait="missing-portrait.png" size={56} />
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>May 2026</div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>June 2026</div>
                         <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>TBD</div>
                       </div>
+
+                      {/* May 2026 */}
+                      {(() => {
+                        const m = members.find((m) => m.name === '수민');
+                        return (
+                          <div style={{
+                            background: 'var(--bg-card)', border: '1px solid var(--border)',
+                            borderRadius: 12, padding: '1.25rem 1.5rem',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
+                            width: 180,
+                          }}>
+                            <Avatar name="수민" portrait={m?.portrait} size={56} />
+                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>May 2026</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>수민</div>
+                          </div>
+                        );
+                      })()}
 
                       {/* April 2026 */}
                       {(() => {
@@ -862,7 +880,7 @@ export default function Home() {
                       Women's Champions
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                      {/* May 2026 */}
+                      {/* June 2026 */}
                       <div style={{
                         background: 'var(--bg-card)', border: '1px solid var(--border)',
                         borderRadius: 12, padding: '1.25rem 1.5rem',
@@ -871,9 +889,27 @@ export default function Home() {
                         width: 180,
                       }}>
                         <Avatar name="?" portrait="missing-portrait.png" size={56} />
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>May 2026</div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>June 2026</div>
                         <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>TBD</div>
                       </div>
+
+                      {/* May 2026 */}
+                      {(() => {
+                        const m = members.find((m) => m.name === '소영');
+                        return (
+                          <div style={{
+                            background: 'var(--bg-card)', border: '1px solid var(--border)',
+                            borderRadius: 12, padding: '1.25rem 1.5rem',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
+                            width: 180,
+                          }}>
+                            <Avatar name="소영" portrait={m?.portrait} size={56} />
+                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>May 2026</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>소영</div>
+                          </div>
+                        );
+                      })()}
 
                       {/* April 2026 */}
                       {(() => {
