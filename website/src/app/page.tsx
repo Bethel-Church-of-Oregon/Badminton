@@ -806,17 +806,22 @@ export default function Home() {
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
                       {/* June 2026 */}
-                      <div style={{
-                        background: 'var(--bg-card)', border: '1px solid var(--border)',
-                        borderRadius: 12, padding: '1.25rem 1.5rem',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
-                        width: 180,
-                      }}>
-                        <Avatar name="?" portrait="missing-portrait.png" size={56} />
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>June 2026</div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>TBD</div>
-                      </div>
+                      {(() => {
+                        const m = members.find((m) => m.name === '민오');
+                        return (
+                          <div style={{
+                            background: 'var(--bg-card)', border: '1px solid var(--border)',
+                            borderRadius: 12, padding: '1.25rem 1.5rem',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
+                            width: 180,
+                          }}>
+                            <Avatar name="민오" portrait={m?.portrait} size={56} />
+                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>June 2026</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>민오</div>
+                          </div>
+                        );
+                      })()}
 
                       {/* May 2026 */}
                       {(() => {
@@ -881,17 +886,22 @@ export default function Home() {
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
                       {/* June 2026 */}
-                      <div style={{
-                        background: 'var(--bg-card)', border: '1px solid var(--border)',
-                        borderRadius: 12, padding: '1.25rem 1.5rem',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
-                        width: 180,
-                      }}>
-                        <Avatar name="?" portrait="missing-portrait.png" size={56} />
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>June 2026</div>
-                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>TBD</div>
-                      </div>
+                      {(() => {
+                        const m = members.find((m) => m.name === '제니');
+                        return (
+                          <div style={{
+                            background: 'var(--bg-card)', border: '1px solid var(--border)',
+                            borderRadius: 12, padding: '1.25rem 1.5rem',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
+                            width: 180,
+                          }}>
+                            <Avatar name="제니" portrait={m?.portrait} size={56} />
+                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>June 2026</div>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>제니</div>
+                          </div>
+                        );
+                      })()}
 
                       {/* May 2026 */}
                       {(() => {
